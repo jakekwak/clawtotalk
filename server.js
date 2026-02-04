@@ -11,23 +11,33 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// Configuration from environment
+const config = {
+  port: process.env.PORT || 3333,
+  botName: process.env.BOT_NAME || 'Assistant',
+  systemPrompt: process.env.BOT_SYSTEM_PROMPT || 
+    `You are a friendly and capable AI assistant. You're speaking via voice, so keep responses conversational and concise. Don't use markdown or formatting - just natural speech. Keep responses brief unless asked for detail.`,
+};
+
+// Validate required environment variables
+const requiredEnvVars = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'ELEVENLABS_API_KEY', 'ELEVENLABS_VOICE_ID'];
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    console.error(`❌ Missing required environment variable: ${envVar}`);
+    console.error('   Copy .env.example to .env and fill in your API keys.');
+    process.exit(1);
+  }
+}
+
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-// Conversation history (in-memory for now)
+// Conversation history (in-memory)
 const conversationHistory = [];
 const MAX_HISTORY = 20;
-
-// System prompt for Gerty
-const SYSTEM_PROMPT = `You are Gerty, a friendly and capable AI assistant. You're speaking via voice, so keep responses conversational and concise. 
-- Don't use markdown, bullet points, or formatting - just natural speech
-- Keep responses brief unless asked for detail (1-3 sentences typically)
-- Be warm and personable, like talking to a friend
-- You can ask follow-up questions to clarify
-- If you don't know something, say so naturally`;
 
 app.use(express.static(join(__dirname, 'public')));
 app.use(express.json());
@@ -35,6 +45,11 @@ app.use(express.json());
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
+});
+
+// Get bot config (for frontend)
+app.get('/api/config', (req, res) => {
+  res.json({ botName: config.botName });
 });
 
 // Main voice endpoint
@@ -49,7 +64,6 @@ app.post('/api/voice', upload.single('audio'), async (req, res) => {
     console.log(`[${new Date().toISOString()}] Received audio: ${req.file.size} bytes, originalname: ${req.file.originalname}, mimetype: ${req.file.mimetype}`);
 
     // Step 1: Transcribe with Whisper
-    // Get extension from original filename (sent by browser)
     const origName = req.file.originalname || 'recording.webm';
     const ext = origName.split('.').pop() || 'webm';
     const audioPath = req.file.path + '.' + ext;
@@ -63,7 +77,6 @@ app.post('/api/voice', upload.single('audio'), async (req, res) => {
       language: 'en',
     });
     
-    // Update path for cleanup
     req.file.path = audioPath;
 
     const userText = transcription.text.trim();
@@ -79,7 +92,6 @@ app.post('/api/voice', upload.single('audio'), async (req, res) => {
     // Step 2: Add to history and get Claude response
     conversationHistory.push({ role: 'user', content: userText });
     
-    // Trim history if too long
     while (conversationHistory.length > MAX_HISTORY) {
       conversationHistory.shift();
     }
@@ -87,7 +99,7 @@ app.post('/api/voice', upload.single('audio'), async (req, res) => {
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 500,
-      system: SYSTEM_PROMPT,
+      system: config.systemPrompt,
       messages: conversationHistory,
     });
 
@@ -127,17 +139,16 @@ app.post('/api/voice', upload.single('audio'), async (req, res) => {
     const elapsed = Date.now() - startTime;
     console.log(`[Done] ${elapsed}ms total`);
 
-    // Return both transcript and audio
     res.json({
       userText,
       assistantText,
       audio: audioBuffer.toString('base64'),
       elapsed,
+      botName: config.botName,
     });
 
   } catch (error) {
     console.error('[Error]', error);
-    // Clean up file on error
     if (req.file) {
       await unlink(req.file.path).catch(() => {});
     }
@@ -152,7 +163,6 @@ app.post('/api/clear', (req, res) => {
   res.json({ ok: true });
 });
 
-const PORT = process.env.PORT || 3333;
-app.listen(PORT, () => {
-  console.log(`🎙️ ClawToTalk running on http://localhost:${PORT}`);
+app.listen(config.port, () => {
+  console.log(`🎙️ ${config.botName} voice server running on http://localhost:${config.port}`);
 });

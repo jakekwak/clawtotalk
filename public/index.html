@@ -183,8 +183,8 @@
 </head>
 <body>
   <div class="container">
-    <h1>🎙️ ClawToTalk</h1>
-    <p class="subtitle" id="subtitle">Hold to speak with Gerty</p>
+    <h1>🎙️ <span id="appTitle">ClawToTalk</span></h1>
+    <p class="subtitle" id="subtitle">Hold to speak</p>
 
     <div class="mode-switcher">
       <button class="mode-btn active" data-mode="ptt">Hold</button>
@@ -227,12 +227,16 @@
     let silenceTimer = null;
     let autoListening = false;
 
+    // Bot name (loaded from server)
+    let botName = 'Assistant';
+    const appTitle = document.getElementById('appTitle');
+
     // Mode descriptions
-    const modeDescriptions = {
-      ptt: 'Hold to speak with Gerty',
+    const getModeDescription = (mode) => ({
+      ptt: `Hold to speak with ${botName}`,
       toggle: 'Tap to start/stop recording',
       auto: 'Tap to listen, auto-stops on silence'
-    };
+    }[mode]);
 
     // Mode switcher
     modeBtns.forEach(btn => {
@@ -240,7 +244,7 @@
         modeBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentMode = btn.dataset.mode;
-        subtitle.textContent = modeDescriptions[currentMode];
+        subtitle.textContent = getModeDescription(currentMode);
         
         // Stop any ongoing recording
         if (isRecording) stopRecording();
@@ -252,6 +256,20 @@
     });
 
     async function init() {
+      // Load bot config from server
+      try {
+        const configRes = await fetch('/api/config');
+        const config = await configRes.json();
+        if (config.botName) {
+          botName = config.botName;
+          appTitle.textContent = botName;
+          subtitle.textContent = getModeDescription(currentMode);
+        }
+      } catch (e) {
+        console.warn('Could not load config:', e);
+      }
+
+      // Request mic permission
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         stream.getTracks().forEach(t => t.stop());
@@ -394,9 +412,12 @@
 
         if (!response.ok) throw new Error(data.error || 'Request failed');
 
+        // Update bot name if provided
+        if (data.botName) botName = data.botName;
+        
         transcript.innerHTML = `
           <div class="user"><strong>You:</strong> ${data.userText}</div>
-          <div class="assistant"><strong>Gerty:</strong> ${data.assistantText}</div>
+          <div class="assistant"><strong>${botName}:</strong> ${data.assistantText}</div>
         `;
 
         pttButton.classList.remove('processing');
