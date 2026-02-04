@@ -1,0 +1,21 @@
+{
+  "name": "clawtotalk",
+  "version": "1.0.0",
+  "description": "Voice interface for Gerty - push to talk",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": ["voice", "ai", "gerty", "push-to-talk"],
+  "author": "Squidcode",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1",
+    "openai": "^4.82.0"
+  }
+}
