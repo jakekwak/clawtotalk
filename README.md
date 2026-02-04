@@ -5,7 +5,7 @@ A browser-based voice interface for AI assistants. Talk to Claude using your voi
 **Push-to-talk, toggle, or hands-free auto-detection** — works on desktop and mobile.
 
 <p align="center">
-  <img src="screenshot.jpg" alt="ClawToTalk Screenshot" width="300">
+  <img src="screenshot.png" alt="ClawToTalk Screenshot" width="300">
 </p>
 
 ## Features
