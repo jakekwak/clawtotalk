@@ -4,7 +4,7 @@ import multer from 'multer';
 import { OpenAI } from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { createReadStream } from 'fs';
-import { unlink } from 'fs/promises';
+import { unlink, rename } from 'fs/promises';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -46,14 +46,25 @@ app.post('/api/voice', upload.single('audio'), async (req, res) => {
       return res.status(400).json({ error: 'No audio file provided' });
     }
 
-    console.log(`[${new Date().toISOString()}] Received audio: ${req.file.size} bytes`);
+    console.log(`[${new Date().toISOString()}] Received audio: ${req.file.size} bytes, originalname: ${req.file.originalname}, mimetype: ${req.file.mimetype}`);
 
     // Step 1: Transcribe with Whisper
+    // Get extension from original filename (sent by browser)
+    const origName = req.file.originalname || 'recording.webm';
+    const ext = origName.split('.').pop() || 'webm';
+    const audioPath = req.file.path + '.' + ext;
+    await rename(req.file.path, audioPath);
+    
+    console.log(`[Audio] ${origName} -> ${audioPath} (${req.file.size} bytes)`);
+    
     const transcription = await openai.audio.transcriptions.create({
-      file: createReadStream(req.file.path),
+      file: createReadStream(audioPath),
       model: 'whisper-1',
       language: 'en',
     });
+    
+    // Update path for cleanup
+    req.file.path = audioPath;
 
     const userText = transcription.text.trim();
     console.log(`[STT] "${userText}"`);
