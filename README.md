@@ -46,8 +46,8 @@ You'll need API keys from:
 
 ```bash
 # Clone the repository
-git clone https://github.com/ktamas77/clawdtotalk.git
-cd clawdtotalk
+git clone https://github.com/ktamas77/clawtotalk.git
+cd clawtotalk
 
 # Install dependencies
 npm install
