@@ -226,6 +226,80 @@
     let audioContext, analyser, microphone;
     let silenceTimer = null;
     let autoListening = false;
+    
+    // Shared audio context for playback (initialized on first interaction)
+    let playbackContext = null;
+    
+    // Audio queue system - prevents overlapping playback
+    const audioQueue = [];
+    let isPlaying = false;
+    
+    function ensureAudioContext() {
+      if (!playbackContext || playbackContext.state === 'closed') {
+        playbackContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (playbackContext.state === 'suspended') {
+        playbackContext.resume();
+      }
+      return playbackContext;
+    }
+    
+    async function playNextInQueue() {
+      if (isPlaying || audioQueue.length === 0) return;
+      
+      isPlaying = true;
+      const { audioData, onStart, onEnd } = audioQueue.shift();
+      
+      if (onStart) onStart();
+      
+      try {
+        const ctx = ensureAudioContext();
+        const binaryString = atob(audioData);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        
+        const audioBuffer = await ctx.decodeAudioData(bytes.buffer);
+        const source = ctx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(ctx.destination);
+        
+        source.onended = () => {
+          isPlaying = false;
+          if (onEnd) onEnd();
+          playNextInQueue(); // Play next queued audio
+        };
+        
+        source.start(0);
+        console.log('Playing via Web Audio API, queue length:', audioQueue.length);
+        
+      } catch (webAudioErr) {
+        console.error('Web Audio failed:', webAudioErr);
+        
+        // Fallback to HTML5 Audio
+        const audio = new Audio('data:audio/mpeg;base64,' + audioData);
+        audio.onended = () => {
+          isPlaying = false;
+          if (onEnd) onEnd();
+          playNextInQueue();
+        };
+        
+        try {
+          await audio.play();
+        } catch (playErr) {
+          console.error('HTML5 Audio also failed:', playErr);
+          isPlaying = false;
+          if (onEnd) onEnd();
+          playNextInQueue();
+        }
+      }
+    }
+    
+    function queueAudio(audioData, onStart, onEnd) {
+      audioQueue.push({ audioData, onStart, onEnd });
+      playNextInQueue();
+    }
 
     // Bot name (loaded from server)
     let botName = 'Assistant';
@@ -283,6 +357,9 @@
 
     async function startRecording() {
       if (isRecording) return;
+      
+      // Warm up audio context on user interaction (iOS requirement)
+      ensureAudioContext();
       
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -427,34 +504,29 @@
 
         console.log('Audio data size:', data.audio?.length || 0, 'chars');
         
-        const audio = new Audio('data:audio/mpeg;base64,' + data.audio);
-        audio.onended = () => {
-          pttButton.classList.remove('playing');
-          status.textContent = 'Ready';
-          status.className = 'status';
-        };
-        audio.onerror = (e) => {
-          console.error('Audio playback error:', e);
-          pttButton.classList.remove('playing');
-          status.textContent = 'Audio error - tap to retry';
-          status.className = 'status error';
-        };
-        
-        try {
-          await audio.play();
-        } catch (playErr) {
-          console.error('Play failed:', playErr);
-          // iOS might need user interaction - show tap prompt
-          status.textContent = 'Tap anywhere to hear response';
-          status.className = 'status';
-          const playOnTap = async () => {
-            document.removeEventListener('click', playOnTap);
-            await audio.play();
+        // Queue audio for playback (prevents overlapping)
+        queueAudio(
+          data.audio,
+          () => {
+            // onStart
+            pttButton.classList.remove('processing');
             pttButton.classList.add('playing');
             status.textContent = 'Speaking...';
             status.className = 'status playing';
-          };
-          document.addEventListener('click', playOnTap, { once: true });
+          },
+          () => {
+            // onEnd
+            pttButton.classList.remove('playing');
+            status.textContent = audioQueue.length > 0 ? `Queued: ${audioQueue.length}` : 'Ready';
+            status.className = 'status';
+          }
+        );
+        
+        // Show queued status if not immediately playing
+        if (isPlaying) {
+          pttButton.classList.remove('processing');
+          status.textContent = `Queued (${audioQueue.length} waiting)`;
+          status.className = 'status';
         }
 
         timer.textContent = `Response time: ${data.elapsed}ms`;
@@ -468,6 +540,16 @@
     }
 
     // Button handlers - different behavior per mode
+    let lastInteractionTime = 0;
+    const DEBOUNCE_MS = 300;
+    
+    function shouldHandle() {
+      const now = Date.now();
+      if (now - lastInteractionTime < DEBOUNCE_MS) return false;
+      lastInteractionTime = now;
+      return true;
+    }
+    
     function handleButtonDown() {
       if (currentMode === 'ptt') {
         startRecording();
@@ -483,6 +565,7 @@
 
     async function handleButtonClick() {
       if (currentMode === 'toggle' || currentMode === 'auto') {
+        if (!shouldHandle()) return; // Debounce duplicate events
         if (isRecording) {
           const blob = await stopRecording();
           if (blob) sendAudio(blob);
@@ -492,22 +575,38 @@
       }
     }
 
-    // Mouse events
-    pttButton.addEventListener('mousedown', handleButtonDown);
-    pttButton.addEventListener('mouseup', handleButtonUp);
+    // Mouse events (desktop)
+    pttButton.addEventListener('mousedown', (e) => {
+      if (e.pointerType === 'touch') return; // Ignore if touch device
+      handleButtonDown();
+    });
+    pttButton.addEventListener('mouseup', (e) => {
+      if (e.pointerType === 'touch') return;
+      handleButtonUp();
+    });
     pttButton.addEventListener('mouseleave', async () => {
       if (currentMode === 'ptt' && isRecording) {
         const blob = await stopRecording();
         if (blob) sendAudio(blob);
       }
     });
-    pttButton.addEventListener('click', handleButtonClick);
+    
+    // Click for toggle/auto modes (use pointer event for better handling)
+    pttButton.addEventListener('click', (e) => {
+      // Only handle click for non-ptt modes, and let touch handlers handle touch
+      if (currentMode !== 'ptt' && e.pointerType !== 'touch') {
+        handleButtonClick();
+      }
+    });
 
-    // Touch events
+    // Touch events (mobile) - prevents ghost clicks
     pttButton.addEventListener('touchstart', (e) => {
       e.preventDefault();
-      if (currentMode === 'ptt') startRecording();
-    });
+      if (currentMode === 'ptt') {
+        startRecording();
+      }
+    }, { passive: false });
+    
     pttButton.addEventListener('touchend', async (e) => {
       e.preventDefault();
       if (currentMode === 'ptt' && isRecording) {
@@ -516,7 +615,7 @@
       } else if (currentMode !== 'ptt') {
         handleButtonClick();
       }
-    });
+    }, { passive: false });
 
     // Clear conversation
     clearBtn.addEventListener('click', async () => {

@@ -74,18 +74,33 @@ async function getOpenClawResponse(userText) {
     const result = JSON.parse(stdout);
     const elapsed = Date.now() - startTime;
     console.log(`[OpenClaw] Response in ${elapsed}ms, status: ${result.status}`);
+    console.log(`[OpenClaw] Payloads:`, JSON.stringify(result.result?.payloads || [], null, 2));
     
-    if (result.status !== 'ok' || !result.result?.payloads?.length) {
-      throw new Error(result.error || 'No response from OpenClaw');
+    if (result.status !== 'ok') {
+      throw new Error(result.error || 'OpenClaw error');
     }
     
-    // Get the text response
-    const responseText = result.result.payloads
-      .map(p => p.text)
-      .filter(Boolean)
-      .join('\n');
+    // Get the text response - handle various response formats
+    let responseText = '';
     
-    return responseText || 'I processed your request but have nothing to say.';
+    if (result.result?.payloads?.length) {
+      responseText = result.result.payloads
+        .map(p => p.text)
+        .filter(Boolean)
+        .join('\n');
+    }
+    
+    // Fallback: check if there's a summary or other text field
+    if (!responseText && result.summary) {
+      responseText = result.summary;
+    }
+    
+    if (!responseText) {
+      console.warn('[OpenClaw] No text in response, returning default');
+      return "I heard you, but I'm not sure how to respond to that.";
+    }
+    
+    return responseText;
     
   } catch (error) {
     console.error('[OpenClaw Error]', error);
