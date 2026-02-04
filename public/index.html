@@ -425,13 +425,37 @@
         status.textContent = 'Speaking...';
         status.className = 'status playing';
 
+        console.log('Audio data size:', data.audio?.length || 0, 'chars');
+        
         const audio = new Audio('data:audio/mpeg;base64,' + data.audio);
         audio.onended = () => {
           pttButton.classList.remove('playing');
           status.textContent = 'Ready';
           status.className = 'status';
         };
-        await audio.play();
+        audio.onerror = (e) => {
+          console.error('Audio playback error:', e);
+          pttButton.classList.remove('playing');
+          status.textContent = 'Audio error - tap to retry';
+          status.className = 'status error';
+        };
+        
+        try {
+          await audio.play();
+        } catch (playErr) {
+          console.error('Play failed:', playErr);
+          // iOS might need user interaction - show tap prompt
+          status.textContent = 'Tap anywhere to hear response';
+          status.className = 'status';
+          const playOnTap = async () => {
+            document.removeEventListener('click', playOnTap);
+            await audio.play();
+            pttButton.classList.add('playing');
+            status.textContent = 'Speaking...';
+            status.className = 'status playing';
+          };
+          document.addEventListener('click', playOnTap, { once: true });
+        }
 
         timer.textContent = `Response time: ${data.elapsed}ms`;
 

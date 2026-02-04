@@ -1,6 +1,6 @@
 # 🎙️ ClawToTalk
 
-A browser-based voice interface for AI assistants. Talk to Claude using your voice, get spoken responses back.
+A browser-based voice interface for AI assistants. Talk using your voice, get spoken responses back.
 
 **Push-to-talk, toggle, or hands-free auto-detection** — works on desktop and mobile.
 
@@ -15,32 +15,41 @@ A browser-based voice interface for AI assistants. Talk to Claude using your voi
   - **Toggle** — Tap to start, tap again to stop
   - **Auto** — Voice activity detection, auto-stops on silence
 - 🗣️ **Natural Voice Responses** — ElevenLabs text-to-speech
-- 💬 **Conversation Memory** — Maintains context within session
+- 🤖 **Two Backend Modes**
+  - **OpenClaw Mode** — Full AI assistant with tools, memory, integrations
+  - **Direct Mode** — Simple Claude API for standalone use
 - 📱 **Mobile Friendly** — Works on iOS Safari and Android Chrome
-- ⚡ **Fast** — ~2-3 second total latency
-- 🎨 **Customizable** — Change bot name, voice, and personality
+- ⚡ **Fast** — ~3-6 second total latency
 
 ## How It Works
 
+### OpenClaw Mode (Recommended)
 ```
-[Your Voice] → [Whisper STT] → [Claude AI] → [ElevenLabs TTS] → [Speaker]
-     🎤              📝              🧠              🔊            🔈
+[Your Voice] → [Whisper STT] → [OpenClaw Agent] → [ElevenLabs TTS] → [Speaker]
+     🎤              📝              🧠🔧              🔊            🔈
 ```
+Full AI assistant with access to tools, files, APIs, and memory.
 
-1. Record audio in browser using MediaRecorder API
-2. Send to OpenAI Whisper for speech-to-text
-3. Claude generates a conversational response
-4. ElevenLabs converts response to natural speech
-5. Audio plays back in browser
+### Direct Claude Mode
+```
+[Your Voice] → [Whisper STT] → [Claude API] → [ElevenLabs TTS] → [Speaker]
+     🎤              📝            🧠              🔊            🔈
+```
+Simple conversational AI, no external tools.
 
 ## Quick Start
 
 ### Prerequisites
 
-You'll need API keys from:
-- [OpenAI](https://platform.openai.com/api-keys) — for Whisper speech-to-text
-- [Anthropic](https://console.anthropic.com/) — for Claude
-- [ElevenLabs](https://elevenlabs.io/) — for text-to-speech
+**Required for both modes:**
+- [OpenAI API Key](https://platform.openai.com/api-keys) — for Whisper STT
+- [ElevenLabs API Key](https://elevenlabs.io/) — for TTS
+
+**For OpenClaw Mode (optional but recommended):**
+- [OpenClaw](https://github.com/openclaw/openclaw) installed and running
+
+**For Direct Mode:**
+- [Anthropic API Key](https://console.anthropic.com/) — for Claude
 
 ### Installation
 
@@ -66,28 +75,50 @@ npm start
 
 Navigate to `http://localhost:3333`
 
-For mobile access on your local network:
-- Find your computer's local IP (e.g., `192.168.1.100`)
-- Open `http://192.168.1.100:3333` on your phone
-
 ## Configuration
 
-Edit `.env` to customize:
+### Direct Claude Mode (Default)
+
+For standalone use without OpenClaw:
 
 ```bash
-# Required API Keys
+# .env
+USE_OPENCLAW=false
 OPENAI_API_KEY=sk-proj-...
 ANTHROPIC_API_KEY=sk-ant-...
 ELEVENLABS_API_KEY=...
 ELEVENLABS_VOICE_ID=SAz9YHcvj6GT2YYXdXww
-
-# Server
-PORT=3333
-
-# Customization
-BOT_NAME=Gerty
-BOT_SYSTEM_PROMPT=You are a friendly AI assistant...
+BOT_NAME=Assistant
 ```
+
+### OpenClaw Mode
+
+For full AI assistant capabilities (tools, memory, integrations):
+
+```bash
+# .env
+USE_OPENCLAW=true
+OPENAI_API_KEY=sk-proj-...
+ELEVENLABS_API_KEY=...
+ELEVENLABS_VOICE_ID=SAz9YHcvj6GT2YYXdXww
+VOICE_SESSION_ID=voice-main
+BOT_NAME=Gerty
+```
+
+Note: OpenClaw must be installed and the gateway must be running (`openclaw gateway start`).
+
+### All Configuration Options
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `OPENAI_API_KEY` | Yes | - | OpenAI API key for Whisper STT |
+| `ELEVENLABS_API_KEY` | Yes | - | ElevenLabs API key for TTS |
+| `ELEVENLABS_VOICE_ID` | Yes | - | ElevenLabs voice ID |
+| `USE_OPENCLAW` | No | `false` | Enable OpenClaw integration |
+| `ANTHROPIC_API_KEY` | If direct mode | - | Anthropic API key for Claude |
+| `VOICE_SESSION_ID` | No | `voice-clawtotalk` | OpenClaw session ID |
+| `BOT_NAME` | No | `Assistant` | Display name in UI |
+| `PORT` | No | `3333` | Server port |
 
 ### Choosing a Voice
 
@@ -104,44 +135,53 @@ Popular options:
 
 | Mode | How to Use | Best For |
 |------|------------|----------|
-| **Hold** | Press and hold the button while speaking, release when done | Quick questions, noisy environments |
+| **Hold** | Press and hold the button while speaking | Quick questions, noisy environments |
 | **Toggle** | Tap to start recording, tap again to stop | Longer messages |
-| **Auto** | Tap once, speak naturally, stops after 1.5s of silence | Hands-free, continuous conversation |
+| **Auto** | Tap once, speak naturally, stops on silence | Hands-free conversation |
 
 ### Tips
 
 - Speak clearly and at a normal pace
 - Wait for the response to finish before speaking again
-- Use "Clear conversation" to reset context
-- On iOS, use "Hold" mode for best reliability
+- On iOS, "Hold" mode is most reliable
+- If audio doesn't play, tap the screen (iOS autoplay restriction)
+
+## What is OpenClaw?
+
+[OpenClaw](https://github.com/openclaw/openclaw) is an AI agent framework that gives your assistant:
+- **Tools** — File access, web search, code execution, APIs
+- **Memory** — Persistent context across conversations
+- **Integrations** — Calendar, email, smart home, and more
+- **Multi-channel** — Same assistant on Slack, Discord, WhatsApp, etc.
+
+With OpenClaw mode enabled, ClawToTalk becomes a voice interface to your full AI assistant, not just a chatbot.
 
 ## API Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/` | GET | Web interface |
-| `/health` | GET | Health check |
+| `/health` | GET | Health check (includes mode) |
 | `/api/config` | GET | Get bot configuration |
 | `/api/voice` | POST | Process voice (multipart form with `audio` field) |
-| `/api/clear` | POST | Clear conversation history |
+| `/api/clear` | POST | Clear conversation (direct mode only) |
 
 ## Deployment
 
-### Local Network (Recommended for Home Use)
+### Local Network
 
-Just run `npm start` — accessible from any device on your network.
+Run `npm start` — accessible from any device on your network via local IP.
 
 ### Tailscale (Access from Anywhere)
 
 ```bash
-# Install Tailscale on your server
-# Then expose the port:
+# Expose via Tailscale Serve (within your tailnet)
 tailscale serve 3333
+
+# Access via https://your-machine.tailnet-name.ts.net/
 ```
 
-Access via `https://your-machine.tailnet-name.ts.net/`
-
-### Production (Docker)
+### Docker
 
 ```dockerfile
 FROM node:22-alpine
@@ -156,49 +196,44 @@ CMD ["npm", "start"]
 ## Troubleshooting
 
 ### "Microphone access denied"
-- Check browser permissions for the site
+- Check browser permissions
 - On iOS, ensure Safari has microphone access in Settings
 
-### "Invalid file format" error
-- This can happen on iOS Safari — try refreshing the page
-- Use "Hold" mode which is more reliable on mobile
+### No audio playback on iOS
+- Tap the screen after speaking — iOS blocks autoplay
+- Try using Safari instead of a PWA
+
+### OpenClaw mode not working
+- Ensure OpenClaw gateway is running: `openclaw gateway status`
+- Check that `openclaw agent --message "test" --json` works from terminal
 
 ### High latency
-- ElevenLabs is usually the bottleneck
-- Try the `eleven_turbo_v2` model for faster responses
-- Check your internet connection
-
-### No audio playback
-- Check device volume
-- Some browsers block autoplay — interact with the page first
+- OpenClaw mode is slower (~5-8s) due to full agent processing
+- Direct mode is faster (~3-4s)
+- ElevenLabs Turbo model helps with TTS speed
 
 ## Tech Stack
 
 - **Backend:** Node.js, Express
 - **STT:** OpenAI Whisper API
-- **LLM:** Anthropic Claude
+- **LLM:** Claude via OpenClaw or direct Anthropic API
 - **TTS:** ElevenLabs
 - **Frontend:** Vanilla HTML/CSS/JS, Web Audio API
 
 ## Contributing
 
-Contributions welcome! Please open an issue or PR.
-
-Ideas for improvements:
+Contributions welcome! Ideas:
 - Wake word detection ("Hey Assistant")
-- Persistent conversation history
+- Streaming responses for lower latency
 - Multiple voice options in UI
-- Streaming responses
-- WebSocket for lower latency
+- WebSocket for real-time communication
 
 ## License
 
-MIT License — feel free to use, modify, and distribute.
+MIT License — use, modify, distribute freely.
 
 ## Credits
 
-Built with ❤️ by [Tamas Kalman](https://github.com/ktamas77) and Gerty 🤖
+Built by [Tamas Kalman](https://github.com/ktamas77) and Gerty 🤖
 
----
-
-*ClawToTalk is part of the OpenClaw ecosystem — giving AI assistants a voice.*
+Part of the [OpenClaw](https://github.com/openclaw/openclaw) ecosystem.
