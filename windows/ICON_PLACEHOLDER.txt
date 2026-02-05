@@ -1,0 +1,26 @@
+ICON FILE NEEDED
+================
+
+This directory needs an icon.ico file for the Windows application.
+
+To create one:
+
+1. Create or obtain a 256x256 PNG image for your app icon
+2. Use an online converter like:
+   - https://www.icoconverter.com/
+   - https://convertio.co/png-ico/
+   - https://favicon.io/favicon-converter/
+
+3. Convert to ICO format with multiple sizes:
+   - 16x16 (small taskbar)
+   - 32x32 (standard)
+   - 48x48 (large icons)
+   - 256x256 (high DPI)
+
+4. Save as windows/icon.ico
+
+5. Rebuild the project
+
+The build will work without an icon, but the executable will use the default Windows icon.
+
+For a quick placeholder, you can use any ICO file temporarily.

@@ -85,8 +85,11 @@ impl AudioBuffer {
 
 /// Cross-platform audio manager implementation
 pub struct CrossPlatformAudioManager {
+    #[allow(dead_code)] // Used in platform-specific code
     settings: AudioSettings,
     recording_buffer: AudioBuffer,
+    #[cfg(target_os = "windows")]
+    windows_optimizer: Option<crate::platform::windows::WindowsAudioOptimizer>,
 }
 
 impl CrossPlatformAudioManager {
@@ -108,10 +111,47 @@ impl CrossPlatformAudioManager {
         
         log::info!("Audio devices verified");
         
-        Ok(Self {
-            settings,
-            recording_buffer: AudioBuffer::new(),
-        })
+        #[cfg(target_os = "windows")]
+        {
+            let mut optimizer = crate::platform::windows::WindowsAudioOptimizer::new();
+            
+            // Apply Windows-specific optimizations
+            if let Err(e) = optimizer.apply_thread_optimizations() {
+                log::warn!("Failed to apply Windows thread optimizations: {}", e);
+            }
+            
+            Ok(Self {
+                settings,
+                recording_buffer: AudioBuffer::new(),
+                windows_optimizer: Some(optimizer),
+            })
+        }
+        
+        #[cfg(not(target_os = "windows"))]
+        {
+            Ok(Self {
+                settings,
+                recording_buffer: AudioBuffer::new(),
+            })
+        }
+    }
+    
+    /// Enable low-latency mode (Windows only)
+    #[cfg(target_os = "windows")]
+    pub fn enable_low_latency(&mut self) -> Result<(), AudioError> {
+        if let Some(optimizer) = &mut self.windows_optimizer {
+            optimizer.enable_exclusive_mode()?;
+            let buffer_size = crate::platform::windows::WindowsAudioOptimizer::get_minimum_buffer_size(self.settings.sample_rate);
+            optimizer.set_buffer_size(buffer_size);
+            log::info!("Low-latency mode enabled");
+        }
+        Ok(())
+    }
+    
+    /// Get Windows audio configuration
+    #[cfg(target_os = "windows")]
+    pub fn get_windows_config(&self) -> Option<crate::platform::windows::WindowsAudioConfig> {
+        self.windows_optimizer.as_ref().map(|opt| opt.get_config())
     }
 }
 
@@ -262,29 +302,8 @@ impl AudioManager for CrossPlatformAudioManager {
     }
     
     fn request_permissions(&self) -> Result<(), AudioError> {
-        // On desktop platforms, permissions are typically handled by the OS
-        // On mobile platforms, this would need platform-specific implementation
-        
-        #[cfg(target_os = "android")]
-        {
-            // Android permission request would go here
-            log::info!("Requesting Android audio permissions");
-            // This would use JNI to request RECORD_AUDIO permission
-        }
-        
-        #[cfg(target_os = "ios")]
-        {
-            // iOS permission request would go here
-            log::info!("Requesting iOS audio permissions");
-            // This would use AVAudioSession to request microphone access
-        }
-        
-        #[cfg(not(any(target_os = "android", target_os = "ios")))]
-        {
-            log::info!("Desktop platform - permissions handled by OS");
-        }
-        
-        Ok(())
+        // Use platform-specific permission handling
+        crate::platform::request_audio_permissions()
     }
 }
 

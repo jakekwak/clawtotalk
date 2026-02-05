@@ -17,6 +17,12 @@ pub enum AudioError {
     
     #[error("Unsupported audio format")]
     UnsupportedFormat,
+    
+    #[error("Platform not supported")]
+    UnsupportedPlatform,
+    
+    #[error("Platform error: {0}")]
+    PlatformError(String),
 }
 
 impl AudioError {
@@ -27,6 +33,8 @@ impl AudioError {
             AudioError::RecordingFailed(msg) => format!("녹음 실패: {}", msg),
             AudioError::PlaybackFailed(msg) => format!("재생 실패: {}", msg),
             AudioError::UnsupportedFormat => "지원되지 않는 오디오 형식입니다".to_string(),
+            AudioError::UnsupportedPlatform => "지원되지 않는 플랫폼입니다".to_string(),
+            AudioError::PlatformError(msg) => format!("플랫폼 오류: {}", msg),
         }
     }
     

@@ -11,3 +11,4 @@ pub mod error_handler;
 pub mod connection;
 pub mod recording;
 pub mod ui;
+pub mod platform;
