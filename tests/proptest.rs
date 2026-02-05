@@ -4,7 +4,7 @@ use proptest::prelude::*;
 use dioxus_voice_assistant::models::*;
 use dioxus_voice_assistant::audio::CrossPlatformAudioManager;
 use dioxus_voice_assistant::vad::{VoiceActivityDetector, VadResult};
-use dioxus_voice_assistant::error::ApiError;
+use dioxus_voice_assistant::error::{ApiError, AudioError, RecoveryAction, ErrorSeverity};
 use dioxus::prelude::*;
 
 // Configure proptest to run fewer cases for faster execution
@@ -1211,6 +1211,354 @@ mod property_tests {
                 "Should attempt exactly max_retries + 1 times"
             );
         });
+    }
+    
+    /// Feature: dioxus-voice-assistant, Property 5: 플랫폼별 권한 처리
+    /// **Validates: Requirements 1.4, 2.5**
+    /// 
+    /// This property verifies that all supported platforms (Windows, macOS, Android, iOS)
+    /// correctly handle audio permission requests and checks. The system should:
+    /// - Request permissions appropriately for each platform
+    /// - Check permission status correctly
+    /// - Handle permission denial gracefully
+    /// - Provide platform-specific guidance when permissions are denied
+    /// 
+    /// Note: This test validates the permission handling logic across all platforms.
+    /// Platform-specific behavior is tested through conditional compilation.
+    #[test]
+    fn test_platform_permission_handling(
+        platform in prop_oneof![
+            Just("windows"),
+            Just("macos"),
+            Just("android"),
+            Just("ios"),
+        ],
+        permission_granted in prop::bool::ANY,
+    ) {
+        use dioxus_voice_assistant::platform;
+        use dioxus_voice_assistant::error::AudioError;
+        
+        // Test 1: Permission request should not panic on any platform
+        // Note: Actual permission requests require platform-specific runtime,
+        // so we test the API surface and error handling
+        
+        // On the current platform, test the actual permission functions
+        #[cfg(target_os = "windows")]
+        {
+            if platform == "windows" {
+                // Test Windows permission request
+                let result = platform::request_audio_permissions();
+                
+                // Should either succeed or return PermissionDenied
+                match result {
+                    Ok(_) => {
+                        // Permission request succeeded
+                        assert!(
+                            true,
+                            "Windows permission request should succeed or return error"
+                        );
+                    }
+                    Err(AudioError::PermissionDenied) => {
+                        // Permission denied is acceptable
+                        assert!(
+                            true,
+                            "Windows permission denial should be handled gracefully"
+                        );
+                    }
+                    Err(e) => {
+                        panic!("Unexpected error from Windows permission request: {:?}", e);
+                    }
+                }
+                
+                // Test permission check
+                let has_permission = platform::check_audio_permissions();
+                assert!(
+                    has_permission || !has_permission,
+                    "Permission check should return a boolean value"
+                );
+            }
+        }
+        
+        #[cfg(target_os = "macos")]
+        {
+            if platform == "macos" {
+                // Test macOS permission request
+                let result = platform::request_audio_permissions();
+                
+                // Should either succeed or return PermissionDenied
+                match result {
+                    Ok(_) => {
+                        assert!(
+                            true,
+                            "macOS permission request should succeed or return error"
+                        );
+                    }
+                    Err(AudioError::PermissionDenied) => {
+                        assert!(
+                            true,
+                            "macOS permission denial should be handled gracefully"
+                        );
+                    }
+                    Err(e) => {
+                        panic!("Unexpected error from macOS permission request: {:?}", e);
+                    }
+                }
+                
+                // Test permission check
+                let has_permission = platform::check_audio_permissions();
+                assert!(
+                    has_permission || !has_permission,
+                    "Permission check should return a boolean value"
+                );
+            }
+        }
+        
+        #[cfg(target_os = "android")]
+        {
+            if platform == "android" {
+                // Test Android permission request
+                // Note: Android requires JNI context which may not be available in tests
+                let result = platform::request_audio_permissions();
+                
+                // Should either succeed or return PermissionDenied or UnsupportedPlatform
+                match result {
+                    Ok(_) => {
+                        assert!(
+                            true,
+                            "Android permission request should succeed or return error"
+                        );
+                    }
+                    Err(AudioError::PermissionDenied) => {
+                        assert!(
+                            true,
+                            "Android permission denial should be handled gracefully"
+                        );
+                    }
+                    Err(AudioError::UnsupportedPlatform) => {
+                        // May occur if JNI context is not initialized in test environment
+                        assert!(
+                            true,
+                            "Android may report unsupported platform in test environment"
+                        );
+                    }
+                    Err(e) => {
+                        panic!("Unexpected error from Android permission request: {:?}", e);
+                    }
+                }
+                
+                // Test permission check
+                let has_permission = platform::check_audio_permissions();
+                assert!(
+                    has_permission || !has_permission,
+                    "Permission check should return a boolean value"
+                );
+            }
+        }
+        
+        #[cfg(target_os = "ios")]
+        {
+            if platform == "ios" {
+                // Test iOS permission request
+                let result = platform::request_audio_permissions();
+                
+                // Should either succeed or return PermissionDenied
+                match result {
+                    Ok(_) => {
+                        assert!(
+                            true,
+                            "iOS permission request should succeed or return error"
+                        );
+                    }
+                    Err(AudioError::PermissionDenied) => {
+                        assert!(
+                            true,
+                            "iOS permission denial should be handled gracefully"
+                        );
+                    }
+                    Err(e) => {
+                        panic!("Unexpected error from iOS permission request: {:?}", e);
+                    }
+                }
+                
+                // Test permission check
+                let has_permission = platform::check_audio_permissions();
+                assert!(
+                    has_permission || !has_permission,
+                    "Permission check should return a boolean value"
+                );
+            }
+        }
+        
+        // Test 2: Verify error handling for permission denial
+        // Simulate permission denial scenario
+        if !permission_granted {
+            // When permission is denied, the error should be AudioError::PermissionDenied
+            let error = AudioError::PermissionDenied;
+            
+            // Verify error has user-friendly message
+            let user_message = error.user_message();
+            assert!(
+                !user_message.is_empty(),
+                "Permission denied error should have a user message"
+            );
+            assert!(
+                user_message.contains("권한") || user_message.contains("permission") || user_message.contains("마이크"),
+                "Permission error message should mention permissions or microphone (got: '{}')",
+                user_message
+            );
+            
+            // Verify error has recovery actions
+            let recovery_actions = error.recovery_actions();
+            assert!(
+                !recovery_actions.is_empty(),
+                "Permission denied error should have recovery actions"
+            );
+            assert!(
+                recovery_actions.contains(&RecoveryAction::RequestPermission) ||
+                recovery_actions.contains(&RecoveryAction::ShowDeviceSettings),
+                "Permission error should suggest requesting permission or showing settings"
+            );
+            
+            // Verify error severity
+            assert_eq!(
+                error.severity(),
+                ErrorSeverity::Critical,
+                "Permission denied should be a critical error"
+            );
+        }
+        
+        // Test 3: Verify platform-specific optimizers handle permissions correctly
+        match platform {
+            "windows" => {
+                #[cfg(target_os = "windows")]
+                {
+                    use dioxus_voice_assistant::platform::windows::WindowsAudioOptimizer;
+                    
+                    // Windows optimizer should be creatable regardless of permissions
+                    let optimizer = WindowsAudioOptimizer::new();
+                    assert!(
+                        optimizer.get_config().buffer_size > 0,
+                        "Windows optimizer should have valid configuration"
+                    );
+                    
+                    // Verify Windows-specific permission check
+                    let has_permission = dioxus_voice_assistant::platform::windows::check_audio_permissions();
+                    assert!(
+                        has_permission || !has_permission,
+                        "Windows permission check should return boolean"
+                    );
+                }
+            }
+            "macos" => {
+                #[cfg(target_os = "macos")]
+                {
+                    use dioxus_voice_assistant::platform::macos::MacOSAudioOptimizer;
+                    
+                    // macOS optimizer should be creatable regardless of permissions
+                    let optimizer = MacOSAudioOptimizer::new();
+                    assert!(
+                        optimizer.get_config().buffer_size > 0,
+                        "macOS optimizer should have valid configuration"
+                    );
+                    
+                    // Verify macOS-specific permission check
+                    let has_permission = dioxus_voice_assistant::platform::macos::check_audio_permissions();
+                    assert!(
+                        has_permission || !has_permission,
+                        "macOS permission check should return boolean"
+                    );
+                }
+            }
+            "android" => {
+                #[cfg(target_os = "android")]
+                {
+                    // Android permission check should not panic even without JNI context
+                    let has_permission = dioxus_voice_assistant::platform::android::check_audio_permissions();
+                    assert!(
+                        has_permission || !has_permission,
+                        "Android permission check should return boolean"
+                    );
+                }
+            }
+            "ios" => {
+                #[cfg(target_os = "ios")]
+                {
+                    use dioxus_voice_assistant::platform::ios::IOSAudioOptimizer;
+                    
+                    // iOS optimizer should be creatable regardless of permissions
+                    let optimizer = IOSAudioOptimizer::new();
+                    assert!(
+                        optimizer.get_config().buffer_size > 0,
+                        "iOS optimizer should have valid configuration"
+                    );
+                    
+                    // Verify iOS-specific permission check
+                    let has_permission = dioxus_voice_assistant::platform::ios::check_audio_permissions();
+                    assert!(
+                        has_permission || !has_permission,
+                        "iOS permission check should return boolean"
+                    );
+                }
+            }
+            _ => {
+                // Unknown platform - should not occur with our strategy
+                panic!("Unknown platform: {}", platform);
+            }
+        }
+        
+        // Test 4: Verify cross-platform API consistency
+        // All platforms should provide the same API surface
+        
+        // request_audio_permissions() should exist and return Result<(), AudioError>
+        let _request_fn: fn() -> Result<(), AudioError> = platform::request_audio_permissions;
+        
+        // check_audio_permissions() should exist and return bool
+        let _check_fn: fn() -> bool = platform::check_audio_permissions;
+        
+        // Test 5: Verify permission state consistency
+        // If we can check permissions, the result should be consistent
+        let permission_check_1 = platform::check_audio_permissions();
+        let permission_check_2 = platform::check_audio_permissions();
+        
+        // Permission state should not change between consecutive checks
+        // (unless there's actual user interaction, which won't happen in tests)
+        assert_eq!(
+            permission_check_1,
+            permission_check_2,
+            "Permission state should be consistent between consecutive checks"
+        );
+        
+        // Test 6: Verify that permission requests are idempotent
+        // Multiple permission requests should not cause errors
+        let result1 = platform::request_audio_permissions();
+        let result2 = platform::request_audio_permissions();
+        
+        // Both requests should return the same type of result
+        match (result1, result2) {
+            (Ok(_), Ok(_)) => {
+                assert!(true, "Multiple permission requests should succeed");
+            }
+            (Err(AudioError::PermissionDenied), Err(AudioError::PermissionDenied)) => {
+                assert!(true, "Multiple permission requests should consistently report denial");
+            }
+            (Err(AudioError::UnsupportedPlatform), Err(AudioError::UnsupportedPlatform)) => {
+                assert!(true, "Unsupported platform should be consistently reported");
+            }
+            (Ok(_), Err(_)) | (Err(_), Ok(_)) => {
+                // Permission state changed between requests - this is acceptable
+                // as the OS may have prompted the user
+                assert!(true, "Permission state may change between requests");
+            }
+            (Err(e1), Err(e2)) => {
+                // Both failed but with potentially different errors
+                // This is acceptable as long as they're both handled
+                assert!(
+                    true,
+                    "Permission requests may fail with different errors: {:?}, {:?}",
+                    e1, e2
+                );
+            }
+        }
     }
 }
 

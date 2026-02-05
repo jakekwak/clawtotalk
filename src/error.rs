@@ -45,6 +45,22 @@ impl AudioError {
             _ => RecoveryAction::Retry,
         }
     }
+    
+    pub fn recovery_actions(&self) -> Vec<RecoveryAction> {
+        vec![self.recovery_action()]
+    }
+    
+    pub fn severity(&self) -> ErrorSeverity {
+        match self {
+            AudioError::PermissionDenied => ErrorSeverity::Critical,
+            AudioError::DeviceNotFound => ErrorSeverity::Critical,
+            AudioError::UnsupportedPlatform => ErrorSeverity::Critical,
+            AudioError::RecordingFailed(_) => ErrorSeverity::Error,
+            AudioError::PlaybackFailed(_) => ErrorSeverity::Error,
+            AudioError::UnsupportedFormat => ErrorSeverity::Error,
+            AudioError::PlatformError(_) => ErrorSeverity::Error,
+        }
+    }
 }
 
 /// API-related errors
