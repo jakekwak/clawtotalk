@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc c5739d5e65d3ec28d486b08cb86e797693f63c55904c08d1a6c3a222cc2df9e0 # shrinks to vad_settings = VadSettings { threshold: 0.07900342, window_size: 256, silence_duration_ms: 100 }, noise_level = 0.0, speech_level = 0.1
