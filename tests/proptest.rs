@@ -2,8 +2,9 @@
 
 use proptest::prelude::*;
 use dioxus_voice_assistant::models::*;
-use dioxus_voice_assistant::audio::{AudioManager, CrossPlatformAudioManager};
+use dioxus_voice_assistant::audio::CrossPlatformAudioManager;
 use dioxus_voice_assistant::vad::{VoiceActivityDetector, VadResult};
+use dioxus_voice_assistant::error::ApiError;
 
 #[cfg(test)]
 mod property_tests {
@@ -38,30 +39,36 @@ mod property_tests {
             })
     }
     
-    // Strategy for generating ApiKeys
-    fn api_keys_strategy() -> impl Strategy<Value = ApiKeys> {
+    // Strategy for generating ServerConfig
+    fn server_config_strategy() -> impl Strategy<Value = ServerConfig> {
         (
+            "https?://[a-z0-9.-]+:[0-9]{4,5}",
+            prop_oneof![
+                Just(ConnectionType::Tailscale),
+                Just(ConnectionType::PublicUrl),
+                Just(ConnectionType::LocalNetwork),
+            ],
             prop::option::of("[a-zA-Z0-9]{32,64}"),
-            prop::option::of("[a-zA-Z0-9]{32,64}"),
-            prop::option::of("[a-zA-Z0-9]{32,64}"),
+            5u64..120,
         )
-            .prop_map(|(openai_key, claude_key, elevenlabs_key)| ApiKeys {
-                openai_key,
-                claude_key,
-                elevenlabs_key,
+            .prop_map(|(server_url, connection_type, auth_token, timeout_seconds)| ServerConfig {
+                server_url,
+                connection_type,
+                auth_token,
+                timeout_seconds,
             })
     }
     
     // Strategy for generating Settings
     fn settings_strategy() -> impl Strategy<Value = Settings> {
         (
-            api_keys_strategy(),
+            server_config_strategy(),
             recording_mode_strategy(),
             vad_settings_strategy(),
             audio_settings_strategy(),
         )
-            .prop_map(|(api_keys, recording_mode, vad_settings, audio_settings)| Settings {
-                api_keys,
+            .prop_map(|(server_config, recording_mode, vad_settings, audio_settings)| Settings {
+                server_config,
                 recording_mode,
                 vad_settings,
                 audio_settings,
@@ -87,9 +94,10 @@ mod property_tests {
             
             // Verify all fields match
             assert_eq!(settings.recording_mode, deserialized.recording_mode);
-            assert_eq!(settings.api_keys.openai_key, deserialized.api_keys.openai_key);
-            assert_eq!(settings.api_keys.claude_key, deserialized.api_keys.claude_key);
-            assert_eq!(settings.api_keys.elevenlabs_key, deserialized.api_keys.elevenlabs_key);
+            assert_eq!(settings.server_config.server_url, deserialized.server_config.server_url);
+            assert_eq!(settings.server_config.connection_type, deserialized.server_config.connection_type);
+            assert_eq!(settings.server_config.auth_token, deserialized.server_config.auth_token);
+            assert_eq!(settings.server_config.timeout_seconds, deserialized.server_config.timeout_seconds);
             assert_eq!(settings.vad_settings.threshold, deserialized.vad_settings.threshold);
             assert_eq!(settings.vad_settings.window_size, deserialized.vad_settings.window_size);
             assert_eq!(settings.vad_settings.silence_duration_ms, deserialized.vad_settings.silence_duration_ms);
@@ -364,6 +372,161 @@ mod property_tests {
                 });
             }
         }
+    }
+    
+    /// Feature: dioxus-voice-assistant, Property 3: API 통신 일관성
+    /// **Validates: Requirements 4.1, 4.2, 5.1**
+    /// 
+    /// This property verifies that the ServerClient correctly handles various inputs
+    /// and maintains consistent behavior across different API calls. It tests:
+    /// - Request/response serialization roundtrip
+    /// - Error handling for different failure scenarios
+    /// - Retry logic with exponential backoff
+    #[test]
+    fn test_api_communication_consistency(
+        server_url in "https?://[a-z0-9.-]+:[0-9]{4,5}",
+        auth_token in prop::option::of("[a-zA-Z0-9]{32,64}"),
+        timeout_seconds in 5u64..120,
+        message in "[a-zA-Z0-9가-힣 ]{1,200}",
+        text in "[a-zA-Z0-9가-힣 ]{1,100}",
+    ) {
+        use dioxus_voice_assistant::api::*;
+        use dioxus_voice_assistant::models::*;
+        
+        // Create server configuration
+        let config = ServerConfig {
+            server_url: server_url.clone(),
+            connection_type: ConnectionType::LocalNetwork,
+            auth_token: auth_token.clone(),
+            timeout_seconds,
+        };
+        
+        // Create server client
+        let client = ServerClient::new(&config);
+        assert!(
+            client.is_ok(),
+            "ServerClient should be created successfully with valid configuration"
+        );
+        
+        let client = client.unwrap();
+        
+        // Verify client configuration
+        assert_eq!(
+            client.base_url(),
+            server_url.trim_end_matches('/'),
+            "Base URL should match configuration (without trailing slash)"
+        );
+        
+        // Test request/response model serialization
+        let chat_request = ChatRequest {
+            message: message.clone(),
+            conversation_history: vec![
+                ChatMessage {
+                    role: "user".to_string(),
+                    content: "Hello".to_string(),
+                },
+                ChatMessage {
+                    role: "assistant".to_string(),
+                    content: "Hi there!".to_string(),
+                },
+            ],
+        };
+        
+        // Serialize and deserialize chat request
+        let json = serde_json::to_string(&chat_request)
+            .expect("ChatRequest should serialize to JSON");
+        let deserialized: ChatRequest = serde_json::from_str(&json)
+            .expect("ChatRequest should deserialize from JSON");
+        
+        assert_eq!(
+            chat_request.message,
+            deserialized.message,
+            "Message should be preserved in serialization roundtrip"
+        );
+        assert_eq!(
+            chat_request.conversation_history.len(),
+            deserialized.conversation_history.len(),
+            "Conversation history length should be preserved"
+        );
+        
+        // Test TTS request serialization
+        let tts_request = TtsRequest {
+            text: text.clone(),
+            voice_id: Some("korean_female_1".to_string()),
+        };
+        
+        let json = serde_json::to_string(&tts_request)
+            .expect("TtsRequest should serialize to JSON");
+        let deserialized: TtsRequest = serde_json::from_str(&json)
+            .expect("TtsRequest should deserialize from JSON");
+        
+        assert_eq!(
+            tts_request.text,
+            deserialized.text,
+            "Text should be preserved in serialization roundtrip"
+        );
+        assert_eq!(
+            tts_request.voice_id,
+            deserialized.voice_id,
+            "Voice ID should be preserved in serialization roundtrip"
+        );
+        
+        // Test retry policy
+        let policy = RetryPolicy::default();
+        
+        // Verify exponential backoff
+        let delay0 = policy.delay_for_attempt(0);
+        let delay1 = policy.delay_for_attempt(1);
+        let delay2 = policy.delay_for_attempt(2);
+        
+        assert!(
+            delay1 > delay0,
+            "Retry delay should increase with each attempt"
+        );
+        assert!(
+            delay2 > delay1,
+            "Retry delay should continue increasing"
+        );
+        
+        // Verify max delay cap
+        let large_delay = policy.delay_for_attempt(100);
+        assert!(
+            large_delay <= policy.max_delay,
+            "Retry delay should be capped at max_delay"
+        );
+        
+        // Test error handling
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        
+        // Test that client handles connection failures gracefully
+        // (This will fail to connect since there's no actual server)
+        runtime.block_on(async {
+            let result = client.check_health().await;
+            
+            // Should return an error (not panic)
+            assert!(
+                result.is_err(),
+                "Client should return error when server is unavailable"
+            );
+            
+            // Verify error types are correctly classified
+            if let Err(e) = result {
+                // Some errors like invalid URL format are not retryable
+                // Only connection/network/timeout errors should be retryable
+                match e {
+                    ApiError::ConnectionRefused | ApiError::Timeout | ApiError::NetworkError(_) => {
+                        assert!(
+                            e.is_retryable(),
+                            "Connection/timeout/network errors should be retryable: {:?}", e
+                        );
+                    }
+                    _ => {
+                        // Other errors (like invalid URL) may not be retryable
+                        // This is expected behavior
+                    }
+                }
+            }
+        });
     }
     }
 }

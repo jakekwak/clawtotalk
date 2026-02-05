@@ -45,6 +45,9 @@ pub enum ApiError {
     #[error("Network error: {0}")]
     NetworkError(String),
     
+    #[error("Server unavailable")]
+    ServerUnavailable,
+    
     #[error("Authentication failed")]
     AuthenticationFailed,
     
@@ -54,6 +57,12 @@ pub enum ApiError {
     #[error("Invalid response: {0}")]
     InvalidResponse(String),
     
+    #[error("Request timeout")]
+    Timeout,
+    
+    #[error("Connection refused")]
+    ConnectionRefused,
+    
     #[error("Service unavailable")]
     ServiceUnavailable,
 }
@@ -62,8 +71,11 @@ impl ApiError {
     pub fn is_retryable(&self) -> bool {
         matches!(self, 
             ApiError::NetworkError(_) | 
-            ApiError::RateLimitExceeded | 
-            ApiError::ServiceUnavailable
+            ApiError::ServerUnavailable |
+            ApiError::Timeout |
+            ApiError::RateLimitExceeded |
+            ApiError::ServiceUnavailable |
+            ApiError::ConnectionRefused
         )
     }
     
@@ -71,8 +83,23 @@ impl ApiError {
         match self {
             ApiError::RateLimitExceeded => std::time::Duration::from_secs(60),
             ApiError::NetworkError(_) => std::time::Duration::from_secs(5),
+            ApiError::ServerUnavailable => std::time::Duration::from_secs(30),
+            ApiError::Timeout => std::time::Duration::from_secs(10),
             ApiError::ServiceUnavailable => std::time::Duration::from_secs(30),
             _ => std::time::Duration::from_secs(1),
+        }
+    }
+    
+    pub fn user_message(&self) -> String {
+        match self {
+            ApiError::NetworkError(msg) => format!("네트워크 오류: {}", msg),
+            ApiError::ServerUnavailable => "서버에 연결할 수 없습니다. Tailscale 또는 서버 URL을 확인하세요.".to_string(),
+            ApiError::AuthenticationFailed => "인증에 실패했습니다. 서버 설정을 확인하세요.".to_string(),
+            ApiError::ConnectionRefused => "서버가 응답하지 않습니다. 서버가 실행 중인지 확인하세요.".to_string(),
+            ApiError::Timeout => "요청 시간이 초과되었습니다.".to_string(),
+            ApiError::RateLimitExceeded => "요청 한도를 초과했습니다. 잠시 후 다시 시도하세요.".to_string(),
+            ApiError::ServiceUnavailable => "서비스를 사용할 수 없습니다.".to_string(),
+            ApiError::InvalidResponse(msg) => format!("잘못된 응답: {}", msg),
         }
     }
 }

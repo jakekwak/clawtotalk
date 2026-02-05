@@ -106,10 +106,38 @@ impl Default for ApiKeys {
     }
 }
 
+/// Server configuration
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ServerConfig {
+    pub server_url: String,
+    pub connection_type: ConnectionType,
+    pub auth_token: Option<String>,
+    pub timeout_seconds: u64,
+}
+
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self {
+            server_url: "http://localhost:8080".to_string(),
+            connection_type: ConnectionType::LocalNetwork,
+            auth_token: None,
+            timeout_seconds: 30,
+        }
+    }
+}
+
+/// Connection type for server
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub enum ConnectionType {
+    Tailscale,
+    PublicUrl,
+    LocalNetwork,
+}
+
 /// Application settings
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Settings {
-    pub api_keys: ApiKeys,
+    pub server_config: ServerConfig,
     pub recording_mode: RecordingMode,
     pub vad_settings: VadSettings,
     pub audio_settings: AudioSettings,
@@ -118,7 +146,7 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            api_keys: ApiKeys::default(),
+            server_config: ServerConfig::default(),
             recording_mode: RecordingMode::default(),
             vad_settings: VadSettings::default(),
             audio_settings: AudioSettings::default(),
@@ -152,4 +180,78 @@ impl Default for AudioLevel {
             average: 0.0,
         }
     }
+}
+
+/// STT API request
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SttRequest {
+    pub language: Option<String>,
+}
+
+/// STT API response
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SttResponse {
+    pub transcript: String,
+    pub confidence: f32,
+    pub language: Option<String>,
+}
+
+/// Chat API request
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ChatRequest {
+    pub message: String,
+    pub conversation_history: Vec<ChatMessage>,
+}
+
+/// Chat message for API
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ChatMessage {
+    pub role: String,
+    pub content: String,
+}
+
+/// Chat API response
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ChatResponse {
+    pub response: String,
+    pub model: Option<String>,
+}
+
+/// TTS API request
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TtsRequest {
+    pub text: String,
+    pub voice_id: Option<String>,
+}
+
+/// TTS API response (binary audio data)
+#[derive(Clone, Debug)]
+pub struct TtsResponse {
+    pub audio_data: Vec<u8>,
+    pub format: String,
+}
+
+/// Health check response
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct HealthResponse {
+    pub status: String,
+    pub services: ServiceStatus,
+    pub version: Option<String>,
+}
+
+/// Service status
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ServiceStatus {
+    pub stt: String,
+    pub chat: String,
+    pub tts: String,
+}
+
+/// Connection status
+#[derive(Clone, Debug, PartialEq)]
+pub enum ConnectionStatus {
+    Connected,
+    Connecting,
+    Disconnected,
+    Error(String),
 }
