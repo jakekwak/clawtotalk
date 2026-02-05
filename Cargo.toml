@@ -65,3 +65,7 @@ opt-level = 0
 [[bin]]
 name = "dioxus-voice-assistant"
 path = "src/main.rs"
+
+[lib]
+name = "dioxus_voice_assistant"
+path = "src/lib.rs"

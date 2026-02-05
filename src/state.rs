@@ -35,8 +35,28 @@ impl AppState {
         *self.is_recording.write() = !current;
     }
     
+    pub fn start_recording(&mut self) {
+        *self.is_recording.write() = true;
+        self.set_status(AppStatus::Recording);
+    }
+    
+    pub fn stop_recording(&mut self) {
+        *self.is_recording.write() = false;
+        self.set_status(AppStatus::Idle);
+    }
+    
     pub fn update_settings(&mut self, settings: Settings) {
-        *self.settings.write() = settings;
+        // Requirement 8.5: Settings changes are applied immediately
+        *self.settings.write() = settings.clone();
+        *self.recording_mode.write() = settings.recording_mode;
+    }
+    
+    pub fn clear_conversation(&mut self) {
+        self.conversation_history.write().clear();
+    }
+    
+    pub fn get_message_count(&self) -> usize {
+        self.conversation_history.read().len()
     }
 }
 
@@ -45,3 +65,4 @@ impl Default for AppState {
         Self::new()
     }
 }
+

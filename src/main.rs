@@ -1,11 +1,11 @@
 use dioxus::prelude::*;
 
-mod audio;
-mod api;
-mod models;
-mod state;
-mod vad;
-mod error;
+pub mod audio;
+pub mod api;
+pub mod models;
+pub mod state;
+pub mod vad;
+pub mod error;
 
 use state::AppState;
 
