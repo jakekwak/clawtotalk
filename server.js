@@ -22,14 +22,22 @@ const config = {
   useOpenClaw: process.env.USE_OPENCLAW !== 'false', // Default to true
 };
 
-// Validate required environment variables
-const requiredEnvVars = ['OPENAI_API_KEY', 'ELEVENLABS_API_KEY', 'ELEVENLABS_VOICE_ID'];
-for (const envVar of requiredEnvVars) {
-  if (!process.env[envVar]) {
-    console.error(`❌ Missing required environment variable: ${envVar}`);
-    console.error('   Copy .env.example to .env and fill in your API keys.');
-    process.exit(1);
+// Mock mode for testing without API keys
+const mockMode = process.env.MOCK_MODE === 'true';
+
+if (!mockMode) {
+  // Validate required environment variables only in non-mock mode
+  const requiredEnvVars = ['OPENAI_API_KEY', 'ELEVENLABS_API_KEY', 'ELEVENLABS_VOICE_ID'];
+  for (const envVar of requiredEnvVars) {
+    if (!process.env[envVar]) {
+      console.error(`❌ Missing required environment variable: ${envVar}`);
+      console.error('   Copy .env.example to .env and fill in your API keys.');
+      console.error('   Or set MOCK_MODE=true to test without API keys.');
+      process.exit(1);
+    }
   }
+} else {
+  console.log('🎭 Running in MOCK MODE - no API keys required');
 }
 
 const app = express();
@@ -45,7 +53,17 @@ app.use(express.json());
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', mode: config.useOpenClaw ? 'openclaw' : 'direct', time: new Date().toISOString() });
+  const mode = mockMode ? 'mock' : (config.useOpenClaw ? 'openclaw' : 'direct');
+  res.json({ 
+    status: 'ok', 
+    mode, 
+    time: new Date().toISOString(),
+    services: {
+      stt: mockMode ? 'mock' : 'available',
+      chat: mockMode ? 'mock' : 'available',
+      tts: mockMode ? 'mock' : 'available'
+    }
+  });
 });
 
 // Get bot config (for frontend)
@@ -119,6 +137,39 @@ app.post('/api/voice', upload.single('audio'), async (req, res) => {
 
     console.log(`[${new Date().toISOString()}] Received audio: ${req.file.size} bytes, originalname: ${req.file.originalname}`);
 
+    let userText;
+    let assistantText;
+    let audioBuffer;
+
+    if (mockMode) {
+      // Mock mode - simulate responses without API calls
+      console.log('[MOCK] Simulating STT...');
+      userText = 'Hello, this is a test message';
+      
+      console.log('[MOCK] Simulating AI response...');
+      assistantText = `This is a mock response from ${config.botName}. In production, this would be a real AI response.`;
+      
+      console.log('[MOCK] Simulating TTS...');
+      // Create a small silent audio buffer for testing
+      audioBuffer = Buffer.alloc(1024);
+      
+      // Clean up uploaded file
+      await unlink(req.file.path).catch(() => {});
+      
+      const elapsed = Date.now() - startTime;
+      console.log(`[MOCK] Done in ${elapsed}ms`);
+      
+      return res.json({
+        userText,
+        assistantText,
+        audio: audioBuffer.toString('base64'),
+        elapsed,
+        botName: config.botName,
+        mode: 'mock',
+      });
+    }
+
+    // Real mode - use actual APIs
     // Step 1: Transcribe with Whisper
     const origName = req.file.originalname || 'recording.webm';
     const ext = origName.split('.').pop() || 'webm';
@@ -135,7 +186,7 @@ app.post('/api/voice', upload.single('audio'), async (req, res) => {
     
     req.file.path = audioPath;
 
-    const userText = transcription.text.trim();
+    userText = transcription.text.trim();
     console.log(`[STT] "${userText}"`);
 
     // Clean up uploaded file
@@ -146,7 +197,6 @@ app.post('/api/voice', upload.single('audio'), async (req, res) => {
     }
 
     // Step 2: Get response from OpenClaw (the real Gerty!)
-    let assistantText;
     if (config.useOpenClaw) {
       assistantText = await getOpenClawResponse(userText);
     } else {
@@ -203,7 +253,7 @@ app.post('/api/voice', upload.single('audio'), async (req, res) => {
       return res.status(500).json({ error: 'TTS failed', details: err });
     }
 
-    const audioBuffer = Buffer.from(await ttsResponse.arrayBuffer());
+    audioBuffer = Buffer.from(await ttsResponse.arrayBuffer());
     const elapsed = Date.now() - startTime;
     console.log(`[TTS] Audio size: ${audioBuffer.length} bytes`);
     console.log(`[Done] ${elapsed}ms total`);
@@ -241,6 +291,11 @@ app.post('/api/clear', async (req, res) => {
 
 app.listen(config.port, () => {
   console.log(`🎙️ ${config.botName} voice server running on http://localhost:${config.port}`);
-  console.log(`   Mode: ${config.useOpenClaw ? 'OpenClaw (full Gerty!)' : 'Direct Claude'}`);
+  if (mockMode) {
+    console.log(`   Mode: MOCK (no API keys required)`);
+  } else {
+    console.log(`   Mode: ${config.useOpenClaw ? 'OpenClaw (full Gerty!)' : 'Direct Claude'}`);
+  }
   console.log(`   Session: ${config.sessionId}`);
+  console.log(`\n   Test with: curl http://localhost:${config.port}/health`);
 });
