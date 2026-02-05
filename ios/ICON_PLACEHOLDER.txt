@@ -1,0 +1,71 @@
+# iOS App Icon Placeholder
+
+## Required Icon Sizes
+
+For iOS app submission, you need to provide app icons in the following sizes:
+
+### iPhone
+- 20x20 pt (2x: 40x40, 3x: 60x60) - Settings, Notification
+- 29x29 pt (2x: 58x58, 3x: 87x87) - Settings
+- 40x40 pt (2x: 80x80, 3x: 120x120) - Spotlight
+- 60x60 pt (2x: 120x120, 3x: 180x180) - App Icon
+
+### iPad
+- 20x20 pt (1x: 20x20, 2x: 40x40) - Settings, Notification
+- 29x29 pt (1x: 29x29, 2x: 58x58) - Settings
+- 40x40 pt (1x: 40x40, 2x: 80x80) - Spotlight
+- 76x76 pt (1x: 76x76, 2x: 152x152) - App Icon
+- 83.5x83.5 pt (2x: 167x167) - iPad Pro App Icon
+
+### App Store
+- 1024x1024 pt (1x: 1024x1024) - App Store
+
+## Icon Guidelines
+
+1. **Format**: PNG (no transparency)
+2. **Color Space**: sRGB or P3
+3. **Shape**: Square (iOS will apply rounded corners)
+4. **Content**: Should be recognizable at all sizes
+5. **Consistency**: Use same design across all sizes
+
+## Creating Icons
+
+### Using Xcode
+1. Open Xcode
+2. Select Assets.xcassets
+3. Right-click > App Icons & Launch Images > New iOS App Icon
+4. Drag and drop icon files for each size
+
+### Using Icon Generator Tools
+- [App Icon Generator](https://appicon.co/)
+- [MakeAppIcon](https://makeappicon.com/)
+- [Icon Slate](https://www.kodlian.com/apps/icon-slate)
+
+## Design Recommendations
+
+For the Voice Assistant app, consider:
+- Microphone icon
+- Sound wave visualization
+- Speech bubble
+- AI/robot theme
+- Clean, modern design
+- High contrast for visibility
+
+## Temporary Icon
+
+For development, you can use a simple colored square:
+1. Create a 1024x1024 PNG
+2. Fill with a solid color (e.g., blue #007AFF)
+3. Add white text "VA" in center
+4. Use icon generator to create all sizes
+
+## Adding to Project
+
+1. Generate all required sizes
+2. Add to `ios/Assets.xcassets/AppIcon.appiconset/`
+3. Update `Contents.json` with file references
+4. Build and verify in Xcode
+
+## Note
+
+This is a placeholder file. Replace with actual app icons before App Store submission.
