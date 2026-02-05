@@ -12,3 +12,6 @@ pub mod connection;
 pub mod recording;
 pub mod ui;
 pub mod platform;
+pub mod performance;
+pub mod memory;
+pub mod compression;

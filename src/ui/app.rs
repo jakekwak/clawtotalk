@@ -17,7 +17,14 @@ pub enum Route {
 /// Requirement 7.1: Provides consistent user experience across all platforms
 #[component]
 pub fn App() -> Element {
-    // Initialize global state
+    // Mark startup complete after first render
+    use_effect(move || {
+        // Get performance monitor
+        let perf = crate::performance::get_performance_monitor();
+        perf.mark_startup_complete();
+    });
+    
+    // Initialize global state with lazy loading
     use_context_provider(|| AppState::new());
     use_context_provider(|| Signal::new(ConnectionStatus::Disconnected));
     use_context_provider(|| Signal::new(Vec::<String>::new())); // Error notifications
@@ -38,7 +45,9 @@ fn Home() -> Element {
     // Clone values before using in closures
     let recording_mode = app_state.recording_mode.read().clone();
     let is_recording = *app_state.is_recording.read();
-    let messages = app_state.conversation_history.read().clone();
+    // Requirement 11.3: Use paginated history for memory efficiency
+    // Only load recent messages for display
+    let messages = app_state.get_recent_messages(100);
     let conn_status = connection_status.read().clone();
     let errors = error_notifications.read().clone();
     

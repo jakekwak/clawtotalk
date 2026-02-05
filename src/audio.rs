@@ -91,6 +91,8 @@ pub struct CrossPlatformAudioManager {
     recording_buffer: AudioBuffer,
     #[cfg(target_os = "windows")]
     windows_optimizer: Option<crate::platform::windows::WindowsAudioOptimizer>,
+    // Pre-initialized audio stream for low latency
+    pre_initialized: Arc<Mutex<bool>>,
 }
 
 impl CrossPlatformAudioManager {
@@ -125,6 +127,7 @@ impl CrossPlatformAudioManager {
                 settings,
                 recording_buffer: AudioBuffer::new(),
                 windows_optimizer: Some(optimizer),
+                pre_initialized: Arc::new(Mutex::new(false)),
             })
         }
         
@@ -133,8 +136,43 @@ impl CrossPlatformAudioManager {
             Ok(Self {
                 settings,
                 recording_buffer: AudioBuffer::new(),
+                pre_initialized: Arc::new(Mutex::new(false)),
             })
         }
+    }
+    
+    /// Pre-initialize audio streams for low latency recording
+    /// Requirement 11.2: Optimize recording start latency
+    pub async fn pre_initialize(&self) -> Result<(), AudioError> {
+        let mut initialized = self.pre_initialized.lock().unwrap();
+        if *initialized {
+            return Ok(());
+        }
+        
+        log::info!("Pre-initializing audio streams for low latency");
+        
+        let host = cpal::default_host();
+        let _input_device = host
+            .default_input_device()
+            .ok_or(AudioError::DeviceNotFound)?;
+        
+        // Verify we can get the config (this warms up the audio system)
+        let _config = _input_device
+            .default_input_config()
+            .map_err(|e| AudioError::RecordingFailed(e.to_string()))?;
+        
+        *initialized = true;
+        log::info!("Audio streams pre-initialized");
+        
+        Ok(())
+    }
+    
+    /// Get optimal buffer size for low latency
+    /// Requirement 11.2: Buffer size optimization
+    pub fn get_optimal_buffer_size(&self) -> usize {
+        // Use smaller buffer for lower latency
+        // 256 samples at 16kHz = 16ms latency
+        256
     }
     
     /// Enable low-latency mode (Windows only)

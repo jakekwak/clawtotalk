@@ -70,12 +70,14 @@ embed-resource = "2.4"
 
 [profile.release]
 opt-level = 3
-lto = true
-codegen-units = 1
+lto = "thin"  # Use thin LTO for faster builds
+codegen-units = 16  # Increase for faster compilation
 strip = true
+panic = "abort"  # Reduce binary size
 
 [profile.dev]
-opt-level = 0
+opt-level = 1  # Slight optimization for faster dev builds
+incremental = true
 
 [[bin]]
 name = "dioxus-voice-assistant"

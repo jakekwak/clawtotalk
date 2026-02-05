@@ -3,6 +3,7 @@ use crate::models::{
     ServerConfig, SttResponse, ChatRequest, ChatResponse, 
     TtsRequest, HealthResponse, ChatMessage
 };
+use crate::compression;
 use reqwest::{Client, multipart};
 use std::time::Duration;
 
@@ -60,9 +61,17 @@ impl ServerClient {
     }
     
     /// Transcribe audio to text via STT API
+    /// Requirement 11.5: Apply audio compression before transmission
     pub async fn transcribe_audio(&self, audio: &[u8], language: Option<String>) -> Result<SttResponse, ApiError> {
+        // Apply compression and optimization before sending
+        let optimized_audio = compression::trim_silence(audio, 100)
+            .map_err(|e| ApiError::NetworkError(format!("Audio optimization failed: {}", e)))?;
+        
+        let compressed_audio = compression::compress_audio(&optimized_audio)
+            .map_err(|e| ApiError::NetworkError(format!("Audio compression failed: {}", e)))?;
+        
         let form = multipart::Form::new()
-            .part("audio", multipart::Part::bytes(audio.to_vec())
+            .part("audio", multipart::Part::bytes(compressed_audio)
                 .file_name("audio.wav")
                 .mime_str("audio/wav")
                 .map_err(|e| ApiError::NetworkError(format!("Failed to create multipart: {}", e)))?);

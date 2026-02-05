@@ -3,6 +3,7 @@ use crate::error::AudioError;
 use crate::models::RecordingMode;
 use crate::vad::{VoiceActivityDetector, VadResult};
 use std::sync::Arc;
+use std::time::Instant;
 
 /// Recording mode handler trait
 #[async_trait::async_trait]
@@ -48,9 +49,19 @@ impl<T: AudioManager> HoldModeHandler<T> {
 impl<T: AudioManager> RecordingModeHandler for HoldModeHandler<T> {
     async fn on_button_press(&mut self) -> Result<(), AudioError> {
         if !self.is_recording {
+            // Measure recording start latency (Requirement 11.2)
+            let start = Instant::now();
+            
             log::info!("Hold mode: Starting recording on button press");
             self.audio_manager.start_recording().await?;
             self.is_recording = true;
+            
+            let latency = start.elapsed();
+            log::info!("Recording started with latency: {:?}", latency);
+            
+            // Record latency in performance monitor
+            let perf = crate::performance::get_performance_monitor();
+            perf.record_recording_latency(latency);
         }
         Ok(())
     }
