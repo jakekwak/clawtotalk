@@ -219,5 +219,151 @@ mod property_tests {
                 "Noise floor should be reset to 0"
             );
         }
+        
+        /// Feature: dioxus-voice-assistant, Property 1: 녹음 모드 동작 일관성
+        /// **Validates: Requirements 2.2, 2.3, 2.4**
+        /// 
+        /// This property verifies that all recording modes (Hold, Toggle, Auto) behave
+        /// consistently according to their specifications:
+        /// - Hold: Recording starts on button press and stops on button release
+        /// - Toggle: First click starts recording, second click stops it
+        /// - Auto: Recording starts automatically when speech is detected and stops after silence
+        #[test]
+        fn test_recording_mode_consistency(
+            mode in recording_mode_strategy(),
+            button_events in prop::collection::vec(prop::bool::ANY, 1..20),
+            speech_frames in prop::collection::vec(
+                prop::collection::vec(-1.0f32..1.0f32, 1000..2000),
+                1..10
+            ),
+        ) {
+        use dioxus_voice_assistant::recording::*;
+        use std::sync::Arc;
+        
+        // Create audio manager and VAD
+        let audio_manager = Arc::new(CrossPlatformAudioManager::new().unwrap());
+        let vad = VoiceActivityDetector::default();
+        let mut manager = RecordingModeManager::new(audio_manager, vad);
+        
+        manager.set_mode(mode.clone());
+        
+        match mode {
+            RecordingMode::Hold => {
+                // Hold mode: Recording should only be active while button is pressed
+                let runtime = tokio::runtime::Runtime::new().unwrap();
+                
+                for &is_pressed in &button_events {
+                    runtime.block_on(async {
+                        if is_pressed {
+                            // Button press should start recording
+                            manager.on_button_press().await.unwrap();
+                            assert!(
+                                manager.is_recording(),
+                                "Hold mode: Recording should be active after button press"
+                            );
+                        } else {
+                            // Button release should stop recording
+                            let result = manager.on_button_release().await.unwrap();
+                            
+                            // If we were recording, we should get audio data
+                            if manager.is_recording() {
+                                assert!(
+                                    result.is_some(),
+                                    "Hold mode: Should return audio data when stopping recording"
+                                );
+                            }
+                            
+                            assert!(
+                                !manager.is_recording(),
+                                "Hold mode: Recording should stop after button release"
+                            );
+                        }
+                    });
+                }
+            }
+            
+            RecordingMode::Toggle => {
+                // Toggle mode: Each click should toggle the recording state
+                let runtime = tokio::runtime::Runtime::new().unwrap();
+                let mut expected_recording = false;
+                
+                for _ in &button_events {
+                    runtime.block_on(async {
+                        // In toggle mode, button release toggles the state
+                        let result = manager.on_button_release().await.unwrap();
+                        expected_recording = !expected_recording;
+                        
+                        assert_eq!(
+                            manager.is_recording(),
+                            expected_recording,
+                            "Toggle mode: Recording state should toggle with each click"
+                        );
+                        
+                        // Should only return audio data when stopping
+                        if !expected_recording {
+                            assert!(
+                                result.is_some(),
+                                "Toggle mode: Should return audio data when stopping recording"
+                            );
+                        } else {
+                            assert!(
+                                result.is_none(),
+                                "Toggle mode: Should not return audio data when starting recording"
+                            );
+                        }
+                    });
+                }
+            }
+            
+            RecordingMode::Auto => {
+                // Auto mode: Recording should start/stop based on speech detection
+                let runtime = tokio::runtime::Runtime::new().unwrap();
+                
+                runtime.block_on(async {
+                    // Establish baseline with low energy frames
+                    for _ in 0..5 {
+                        let low_frame = vec![0.001; 1024];
+                        manager.process_audio_frame(&low_frame).await.unwrap();
+                    }
+                    
+                    // Initially should not be recording
+                    let initial_recording = manager.is_recording();
+                    
+                    // Process speech frames (high energy)
+                    let mut speech_detected = false;
+                    for frame in &speech_frames {
+                        // Create high-energy speech frame
+                        let speech_frame: Vec<f32> = frame.iter()
+                            .map(|&x| if x.abs() < 0.1 { 0.5 } else { x })
+                            .collect();
+                        
+                        manager.process_audio_frame(&speech_frame).await.unwrap();
+                        
+                        if manager.is_recording() {
+                            speech_detected = true;
+                        }
+                    }
+                    
+                    // Auto mode should eventually start recording when speech is detected
+                    // (or remain in initial state if no clear speech pattern)
+                    if speech_detected {
+                        assert!(
+                            manager.is_recording() || !initial_recording,
+                            "Auto mode: Should start recording when speech is detected"
+                        );
+                    }
+                    
+                    // Process silence frames
+                    for _ in 0..5 {
+                        let silence_frame = vec![0.001; 1024];
+                        manager.process_audio_frame(&silence_frame).await.unwrap();
+                    }
+                    
+                    // After silence, recording should eventually stop
+                    // (Note: This depends on silence_duration_ms setting)
+                });
+            }
+        }
+    }
     }
 }

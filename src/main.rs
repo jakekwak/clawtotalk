@@ -6,6 +6,7 @@ pub mod models;
 pub mod state;
 pub mod vad;
 pub mod error;
+pub mod recording;
 
 use state::AppState;
 
