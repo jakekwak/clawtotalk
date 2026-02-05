@@ -120,12 +120,63 @@ pub enum AppError {
     Unknown(String),
 }
 
+impl AppError {
+    pub fn user_message(&self) -> String {
+        match self {
+            AppError::Audio(e) => e.user_message(),
+            AppError::Api(e) => e.user_message(),
+            AppError::Configuration(msg) => format!("설정 오류: {}", msg),
+            AppError::Unknown(msg) => format!("알 수 없는 오류: {}", msg),
+        }
+    }
+    
+    pub fn recovery_actions(&self) -> Vec<RecoveryAction> {
+        match self {
+            AppError::Audio(e) => vec![e.recovery_action()],
+            AppError::Api(e) if e.is_retryable() => vec![RecoveryAction::Retry, RecoveryAction::ShowSettings],
+            AppError::Api(_) => vec![RecoveryAction::ShowSettings],
+            AppError::Configuration(_) => vec![RecoveryAction::ShowSettings],
+            AppError::Unknown(_) => vec![RecoveryAction::Retry],
+        }
+    }
+    
+    pub fn severity(&self) -> ErrorSeverity {
+        match self {
+            AppError::Audio(AudioError::PermissionDenied) => ErrorSeverity::Critical,
+            AppError::Audio(AudioError::DeviceNotFound) => ErrorSeverity::Critical,
+            AppError::Api(ApiError::AuthenticationFailed) => ErrorSeverity::Critical,
+            AppError::Api(_) => ErrorSeverity::Warning,
+            AppError::Audio(_) => ErrorSeverity::Error,
+            AppError::Configuration(_) => ErrorSeverity::Warning,
+            AppError::Unknown(_) => ErrorSeverity::Error,
+        }
+    }
+    
+    pub fn is_retryable(&self) -> bool {
+        match self {
+            AppError::Api(e) => e.is_retryable(),
+            AppError::Audio(AudioError::RecordingFailed(_)) => true,
+            AppError::Audio(AudioError::PlaybackFailed(_)) => true,
+            _ => false,
+        }
+    }
+}
+
 /// Recovery actions for errors
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum RecoveryAction {
     RequestPermission,
     ShowDeviceSettings,
     Retry,
     ShowSettings,
     None,
+}
+
+/// Error severity levels
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ErrorSeverity {
+    Info,
+    Warning,
+    Error,
+    Critical,
 }

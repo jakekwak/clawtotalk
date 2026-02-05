@@ -7,5 +7,7 @@ pub mod models;
 pub mod state;
 pub mod vad;
 pub mod error;
+pub mod error_handler;
+pub mod connection;
 pub mod recording;
 pub mod ui;
