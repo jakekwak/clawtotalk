@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use crate::error::AudioError;
 use crate::models::AudioSettings;
+use crate::platform;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{FromSample, SizedSample};
 use std::sync::{Arc, Mutex};
@@ -303,7 +304,7 @@ impl AudioManager for CrossPlatformAudioManager {
     
     fn request_permissions(&self) -> Result<(), AudioError> {
         // Use platform-specific permission handling
-        crate::platform::request_audio_permissions()
+        platform::request_audio_permissions()
     }
 }
 

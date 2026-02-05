@@ -1,0 +1,72 @@
+# Android-specific Cargo configuration
+# Add this to your main Cargo.toml under [package.metadata.android]
+
+[package.metadata.android]
+# Package identifier (must match AndroidManifest.xml)
+package = "com.dioxus.voiceassistant"
+
+# App name displayed to users
+label = "Voice Assistant"
+
+# App icon (place in android/res/mipmap-*)
+icon = "@mipmap/ic_launcher"
+
+# Assets directory
+assets = "assets"
+
+# Resources directory
+res = "android/res"
+
+# Custom AndroidManifest.xml
+manifest = "android/AndroidManifest.xml"
+
+# Build configuration
+build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
+
+# SDK versions
+[package.metadata.android.sdk]
+min_sdk_version = 26  # Android 8.0 (Oreo)
+target_sdk_version = 34  # Android 14
+compile_sdk_version = 34
+
+# Application configuration
+[package.metadata.android.application]
+debuggable = true
+theme = "@style/Theme.DioxusVoiceAssistant"
+has_code = true
+
+# Activity configuration
+[[package.metadata.android.application.activity]]
+name = "com.dioxus.voiceassistant.MainActivity"
+label = "Voice Assistant"
+config_changes = ["orientation", "keyboardHidden", "screenSize"]
+launch_mode = "singleTask"
+orientation = "unspecified"
+
+# Permissions (also defined in AndroidManifest.xml)
+[[package.metadata.android.uses_permission]]
+name = "android.permission.RECORD_AUDIO"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.INTERNET"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.ACCESS_NETWORK_STATE"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.WAKE_LOCK"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.FOREGROUND_SERVICE"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.FOREGROUND_SERVICE_MICROPHONE"
+
+# Features
+[[package.metadata.android.uses_feature]]
+name = "android.hardware.microphone"
+required = true
+
+# Native libraries
+[package.metadata.android.application_meta_data]
+# Add any meta-data here if needed

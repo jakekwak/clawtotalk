@@ -8,6 +8,7 @@ pub mod vad;
 pub mod error;
 pub mod recording;
 pub mod ui;
+pub mod platform;
 
 use ui::App;
 

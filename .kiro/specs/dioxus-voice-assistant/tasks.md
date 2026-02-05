@@ -275,7 +275,7 @@ ClawToTalk 웹 애플리케이션을 Dioxus 0.7을 사용하여 크로스 플랫
     - 앱 번들 및 서명 설정
     - _요구사항: 1.2, 1.3_
   
-  - [ ] 10.3 Android 플랫폼 최적화
+  - [x] 10.3 Android 플랫폼 최적화
     - AudioRecord 권한 요청 구현
     - AndroidManifest.xml 설정
     - 백그라운드 서비스 제한 처리
