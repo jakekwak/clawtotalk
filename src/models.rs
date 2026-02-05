@@ -39,7 +39,7 @@ pub enum MessageType {
 }
 
 /// Recording mode
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 pub enum RecordingMode {
     Hold,
     Toggle,
@@ -53,7 +53,7 @@ impl Default for RecordingMode {
 }
 
 /// Voice Activity Detection settings
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct VadSettings {
     pub threshold: f32,
     pub window_size: usize,
@@ -71,7 +71,7 @@ impl Default for VadSettings {
 }
 
 /// Audio settings
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct AudioSettings {
     pub sample_rate: u32,
     pub channels: u16,
@@ -107,7 +107,7 @@ impl Default for ApiKeys {
 }
 
 /// Server configuration
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct ServerConfig {
     pub server_url: String,
     pub connection_type: ConnectionType,
@@ -135,7 +135,7 @@ pub enum ConnectionType {
 }
 
 /// Application settings
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Settings {
     pub server_config: ServerConfig,
     pub recording_mode: RecordingMode,

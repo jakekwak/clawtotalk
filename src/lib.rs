@@ -8,3 +8,4 @@ pub mod state;
 pub mod vad;
 pub mod error;
 pub mod recording;
+pub mod ui;

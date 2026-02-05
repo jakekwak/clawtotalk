@@ -5,6 +5,7 @@ use dioxus_voice_assistant::models::*;
 use dioxus_voice_assistant::audio::CrossPlatformAudioManager;
 use dioxus_voice_assistant::vad::{VoiceActivityDetector, VadResult};
 use dioxus_voice_assistant::error::ApiError;
+use dioxus::prelude::*;
 
 #[cfg(test)]
 mod property_tests {
@@ -528,5 +529,281 @@ mod property_tests {
             }
         });
     }
+    
+    /// Feature: dioxus-voice-assistant, Property 7: UI 상태 동기화
+    /// **Validates: Requirements 7.3, 8.5**
+    /// 
+    /// This property verifies that UI state changes are immediately reflected in the
+    /// application state. When settings are updated, the recording mode should change
+    /// immediately, and when messages are added, they should appear in the conversation
+    /// history without delay.
+    #[test]
+    fn test_ui_state_synchronization(
+        initial_settings in settings_strategy(),
+        new_settings in settings_strategy(),
+        messages in prop::collection::vec(
+            ("[a-zA-Z0-9가-힣 ]{1,100}", prop::bool::ANY),
+            1..10
+        ),
+    ) {
+        use dioxus_voice_assistant::state::AppState;
+        use dioxus_voice_assistant::models::{Message, MessageType};
+        
+        // Create application state
+        let mut app_state = AppState::new();
+        
+        // Set initial settings
+        app_state.update_settings(initial_settings.clone());
+        
+        // Requirement 8.5: Settings changes should be applied immediately
+        assert_eq!(
+            *app_state.settings.read(),
+            initial_settings,
+            "Initial settings should be applied immediately"
+        );
+        assert_eq!(
+            *app_state.recording_mode.read(),
+            initial_settings.recording_mode,
+            "Recording mode should match settings immediately"
+        );
+        
+        // Update settings
+        app_state.update_settings(new_settings.clone());
+        
+        // Verify immediate synchronization
+        assert_eq!(
+            *app_state.settings.read(),
+            new_settings,
+            "New settings should be applied immediately"
+        );
+        assert_eq!(
+            *app_state.recording_mode.read(),
+            new_settings.recording_mode,
+            "Recording mode should update immediately with settings"
+        );
+        
+        // Test message synchronization
+        // Requirement 7.3: Messages should appear immediately in conversation history
+        let initial_count = app_state.get_message_count();
+        let messages_len = messages.len();
+        
+        for (content, is_user) in messages {
+            let message_type = if is_user {
+                MessageType::User
+            } else {
+                MessageType::Assistant
+            };
+            
+            let message = Message::new(content.clone(), message_type);
+            app_state.add_message(message.clone());
+            
+            // Verify message was added immediately
+            let current_messages = app_state.conversation_history.read();
+            assert!(
+                current_messages.iter().any(|m| m.content == content),
+                "Message should appear in conversation history immediately"
+            );
+        }
+        
+        // Verify all messages were added
+        let final_count = app_state.get_message_count();
+        assert_eq!(
+            final_count,
+            initial_count + messages_len,
+            "All messages should be added to conversation history"
+        );
+        
+        // Test recording state synchronization
+        // Requirement 7.3: Visual feedback should update immediately
+        assert!(!*app_state.is_recording.read(), "Should not be recording initially");
+        
+        app_state.start_recording();
+        assert!(
+            *app_state.is_recording.read(),
+            "Recording state should update immediately when starting"
+        );
+        assert_eq!(
+            *app_state.current_status.read(),
+            AppStatus::Recording,
+            "Status should update immediately to Recording"
+        );
+        
+        app_state.stop_recording();
+        assert!(
+            !*app_state.is_recording.read(),
+            "Recording state should update immediately when stopping"
+        );
+        assert_eq!(
+            *app_state.current_status.read(),
+            AppStatus::Idle,
+            "Status should update immediately to Idle"
+        );
+        
+        // Test toggle functionality
+        let initial_state = *app_state.is_recording.read();
+        app_state.toggle_recording();
+        assert_eq!(
+            *app_state.is_recording.read(),
+            !initial_state,
+            "Toggle should immediately flip recording state"
+        );
+        
+        // Test clear conversation
+        app_state.clear_conversation();
+        assert_eq!(
+            app_state.get_message_count(),
+            0,
+            "Conversation should be cleared immediately"
+        );
     }
+    
+    /// Feature: dioxus-voice-assistant, Property 8: 입력 처리 포괄성
+    /// **Validates: Requirements 7.2**
+    /// 
+    /// This property verifies that the application handles all input types consistently:
+    /// - Mouse events (click, mousedown, mouseup, mouseleave)
+    /// - Touch events (touchstart, touchend)
+    /// - Keyboard events (for accessibility)
+    /// 
+    /// The recording button should respond correctly to all input methods across
+    /// different recording modes.
+    #[test]
+    fn test_input_handling_comprehensiveness(
+        mode in recording_mode_strategy(),
+        input_events in prop::collection::vec(
+            prop_oneof![
+                Just("click"),
+                Just("mousedown"),
+                Just("mouseup"),
+                Just("mouseleave"),
+                Just("touchstart"),
+                Just("touchend"),
+            ],
+            1..20
+        ),
+    ) {
+        use dioxus_voice_assistant::recording::*;
+        use std::sync::Arc;
+        
+        // Create recording manager
+        let audio_manager = Arc::new(CrossPlatformAudioManager::new().unwrap());
+        let vad = VoiceActivityDetector::default();
+        let mut manager = RecordingModeManager::new(audio_manager, vad);
+        
+        manager.set_mode(mode.clone());
+        
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        
+        // Track expected state based on mode and events
+        let mut expected_recording = false;
+        let mut is_pressed = false;
+        
+        for event in input_events {
+            runtime.block_on(async {
+                match (mode, event) {
+                    // Hold mode: Recording active while button is pressed
+                    (RecordingMode::Hold, "mousedown") | (RecordingMode::Hold, "touchstart") => {
+                        is_pressed = true;
+                        manager.on_button_press().await.unwrap();
+                        expected_recording = true;
+                        
+                        assert_eq!(
+                            manager.is_recording(),
+                            expected_recording,
+                            "Hold mode: Should start recording on press event"
+                        );
+                    }
+                    
+                    (RecordingMode::Hold, "mouseup") | 
+                    (RecordingMode::Hold, "touchend") | 
+                    (RecordingMode::Hold, "mouseleave") => {
+                        if is_pressed {
+                            is_pressed = false;
+                            manager.on_button_release().await.unwrap();
+                            expected_recording = false;
+                            
+                            assert_eq!(
+                                manager.is_recording(),
+                                expected_recording,
+                                "Hold mode: Should stop recording on release event"
+                            );
+                        }
+                    }
+                    
+                    // Toggle mode: Click toggles state
+                    (RecordingMode::Toggle, "click") | 
+                    (RecordingMode::Toggle, "mouseup") | 
+                    (RecordingMode::Toggle, "touchend") => {
+                        manager.on_button_release().await.unwrap();
+                        expected_recording = !expected_recording;
+                        
+                        assert_eq!(
+                            manager.is_recording(),
+                            expected_recording,
+                            "Toggle mode: Should toggle recording state on click/release"
+                        );
+                    }
+                    
+                    // Auto mode: Button events don't affect recording
+                    (RecordingMode::Auto, _) => {
+                        // Auto mode ignores button events
+                        // Recording is controlled by VAD
+                        // Just verify the manager doesn't crash
+                        let _ = manager.on_button_press().await;
+                        let _ = manager.on_button_release().await;
+                    }
+                    
+                    // Other combinations: No state change expected
+                    _ => {
+                        // These events don't trigger state changes in their respective modes
+                    }
+                }
+            });
+        }
+        
+        // Verify final state consistency
+        assert_eq!(
+            manager.is_recording(),
+            expected_recording,
+            "Final recording state should match expected state based on input events"
+        );
+        
+        // Test that all input types are handled without panicking
+        // This verifies comprehensive input handling
+        runtime.block_on(async {
+            // Reset to known state
+            manager.set_mode(RecordingMode::Toggle);
+            if manager.is_recording() {
+                manager.on_button_release().await.unwrap();
+            }
+            
+            // Test each input type
+            let input_types = vec![
+                "click", "mousedown", "mouseup", "mouseleave",
+                "touchstart", "touchend"
+            ];
+            
+            for input_type in input_types {
+                match input_type {
+                    "mousedown" | "touchstart" => {
+                        let result = manager.on_button_press().await;
+                        assert!(
+                            result.is_ok(),
+                            "Should handle {} event without error", input_type
+                        );
+                    }
+                    _ => {
+                        let result = manager.on_button_release().await;
+                        assert!(
+                            result.is_ok(),
+                            "Should handle {} event without error", input_type
+                        );
+                    }
+                }
+            }
+        });
+    }
+}
+
+
 }

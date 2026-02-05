@@ -10,6 +10,7 @@ description = "Cross-platform voice assistant built with Dioxus"
 # Dioxus 0.7 core dependencies
 dioxus = { version = "0.7", features = ["desktop", "mobile", "web"] }
 dioxus-signals = "0.7"
+dioxus-router = "0.7"
 
 # Audio processing
 cpal = "0.15"
