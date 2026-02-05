@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Audio Input Permission -->
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+    
+    <!-- Network Client (outgoing connections) -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    
+    <!-- Network Server (if needed for local server) -->
+    <key>com.apple.security.network.server</key>
+    <true/>
+    
+    <!-- Allow local network access (Tailscale) -->
+    <key>com.apple.security.network.local</key>
+    <true/>
+    
+    <!-- User Selected Files (if file operations needed) -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+    
+    <!-- Hardened Runtime -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <false/>
+    
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <false/>
+    
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <false/>
+    
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <false/>
+    
+    <!-- Disable App Sandbox for development -->
+    <!-- Enable this for App Store distribution -->
+    <!-- <key>com.apple.security.app-sandbox</key> -->
+    <!-- <true/> -->
+</dict>
+</plist>

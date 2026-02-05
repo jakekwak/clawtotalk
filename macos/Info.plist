@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Application Information -->
+    <key>CFBundleName</key>
+    <string>Dioxus Voice Assistant</string>
+    
+    <key>CFBundleDisplayName</key>
+    <string>Dioxus Voice Assistant</string>
+    
+    <key>CFBundleIdentifier</key>
+    <string>com.squidcode.dioxus-voice-assistant</string>
+    
+    <key>CFBundleVersion</key>
+    <string>0.1.0</string>
+    
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    
+    <key>CFBundleExecutable</key>
+    <string>dioxus-voice-assistant</string>
+    
+    <!-- Icon Configuration -->
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    
+    <key>CFBundleIconName</key>
+    <string>AppIcon</string>
+    
+    <!-- Privacy Permissions -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>This app needs access to your microphone to record voice commands and communicate with the AI assistant.</string>
+    
+    <key>NSAppleMusicUsageDescription</key>
+    <string>This app needs access to audio to play AI assistant responses.</string>
+    
+    <!-- Network Access -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <false/>
+        <key>NSAllowsLocalNetworking</key>
+        <true/>
+        <key>NSExceptionDomains</key>
+        <dict>
+            <!-- Allow Tailscale local network -->
+            <key>100.64.0.0</key>
+            <dict>
+                <key>NSIncludesSubdomains</key>
+                <true/>
+                <key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
+                <true/>
+            </dict>
+        </dict>
+    </dict>
+    
+    <!-- macOS Specific Settings -->
+    <key>LSMinimumSystemVersion</key>
+    <string>10.15</string>
+    
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.productivity</string>
+    
+    <!-- High Resolution Support -->
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    
+    <key>NSSupportsAutomaticGraphicsSwitching</key>
+    <true/>
+    
+    <!-- Background Modes -->
+    <key>LSBackgroundOnly</key>
+    <false/>
+    
+    <!-- Document Types (if needed) -->
+    <key>CFBundleDocumentTypes</key>
+    <array/>
+    
+    <!-- URL Schemes (if needed) -->
+    <key>CFBundleURLTypes</key>
+    <array/>
+    
+    <!-- Hardware Acceleration -->
+    <key>NSSupportsAutomaticGraphicsSwitching</key>
+    <true/>
+    
+    <!-- Audio Session Configuration -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>audio</string>
+    </array>
+    
+    <!-- Copyright and Credits -->
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright © 2024 Squidcode. All rights reserved.</string>
+    
+    <!-- Principal Class -->
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    
+    <!-- Main Nib File -->
+    <key>NSMainNibFile</key>
+    <string>MainMenu</string>
+</dict>
+</plist>

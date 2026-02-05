@@ -21,6 +21,14 @@ target_sdk_version = 34
 [application.mobile.ios]
 deployment_target = "13.0"
 
+[application.desktop.macos]
+# macOS-specific desktop configuration
+bundle_identifier = "com.squidcode.dioxus-voice-assistant"
+minimum_system_version = "10.15"
+info_plist_path = "macos/Info.plist"
+entitlements_path = "macos/entitlements.plist"
+icon_path = "macos/AppIcon.icns"
+
 [build]
 # Build configuration
 release = false

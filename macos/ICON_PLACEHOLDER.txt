@@ -1,0 +1,58 @@
+# App Icon Placeholder
+
+To add a custom app icon for macOS:
+
+1. Create an icon file named `AppIcon.icns` with the following sizes:
+   - 16x16
+   - 32x32
+   - 64x64
+   - 128x128
+   - 256x256
+   - 512x512
+   - 1024x1024
+
+2. You can create an .icns file from a PNG using the following commands:
+
+```bash
+# Create iconset directory
+mkdir AppIcon.iconset
+
+# Create different sizes (assuming you have a 1024x1024 PNG)
+sips -z 16 16     icon_1024.png --out AppIcon.iconset/icon_16x16.png
+sips -z 32 32     icon_1024.png --out AppIcon.iconset/icon_16x16@2x.png
+sips -z 32 32     icon_1024.png --out AppIcon.iconset/icon_32x32.png
+sips -z 64 64     icon_1024.png --out AppIcon.iconset/icon_32x32@2x.png
+sips -z 128 128   icon_1024.png --out AppIcon.iconset/icon_128x128.png
+sips -z 256 256   icon_1024.png --out AppIcon.iconset/icon_128x128@2x.png
+sips -z 256 256   icon_1024.png --out AppIcon.iconset/icon_256x256.png
+sips -z 512 512   icon_1024.png --out AppIcon.iconset/icon_256x256@2x.png
+sips -z 512 512   icon_1024.png --out AppIcon.iconset/icon_512x512.png
+sips -z 1024 1024 icon_1024.png --out AppIcon.iconset/icon_512x512@2x.png
+
+# Convert to .icns
+iconutil -c icns AppIcon.iconset -o AppIcon.icns
+
+# Move to macos directory
+mv AppIcon.icns macos/
+
+# Clean up
+rm -rf AppIcon.iconset
+```
+
+3. Place the `AppIcon.icns` file in this directory (macos/)
+
+4. The build script will automatically include it in the app bundle
+
+## Design Guidelines
+
+For best results, your app icon should:
+- Be a 1024x1024 PNG with transparency
+- Use simple, recognizable imagery
+- Work well at small sizes (16x16)
+- Follow macOS design guidelines
+- Use appropriate colors and contrast
+
+## Resources
+
+- [Apple Human Interface Guidelines - App Icons](https://developer.apple.com/design/human-interface-guidelines/app-icons)
+- [macOS Icon Template](https://developer.apple.com/design/resources/)
