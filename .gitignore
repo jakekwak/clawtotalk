@@ -18,3 +18,13 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Rust
+/target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# Dioxus
+/dist/
+/build/

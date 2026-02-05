@@ -1,0 +1,39 @@
+[application]
+name = "dioxus-voice-assistant"
+default_platform = "desktop"
+
+[application.desktop]
+title = "Dioxus Voice Assistant"
+icon = "assets/icon.png"
+
+[application.web]
+title = "Dioxus Voice Assistant"
+app_name = "dioxus-voice-assistant"
+
+[application.mobile]
+app_name = "Dioxus Voice Assistant"
+bundle_identifier = "com.squidcode.dioxus-voice-assistant"
+
+[application.mobile.android]
+min_sdk_version = 24
+target_sdk_version = 34
+
+[application.mobile.ios]
+deployment_target = "13.0"
+
+[build]
+# Build configuration
+release = false
+verbose = false
+
+[build.desktop]
+# Desktop-specific build settings
+features = ["desktop"]
+
+[build.web]
+# Web-specific build settings
+features = ["web"]
+
+[build.mobile]
+# Mobile-specific build settings
+features = ["mobile"]
